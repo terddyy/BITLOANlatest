@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
 
 interface PredictionChartProps {
   prediction?: {
@@ -15,9 +16,19 @@ interface PredictionChartProps {
 
 export default function PredictionChart({ prediction }: PredictionChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [selectedTimeframe, setSelectedTimeframe] = useState<'1h' | '6h' | '24h'>('6h');
+
+  // Fetch prediction data for selected timeframe
+  const { data: timeframeData } = useQuery({
+    queryKey: ['/api/predictions', selectedTimeframe],
+    enabled: selectedTimeframe !== '6h' // Only fetch if not default
+  });
+
+  // Use timeframe-specific data if available, otherwise use default prediction
+  const activeData = selectedTimeframe !== '6h' && timeframeData ? timeframeData : prediction;
 
   useEffect(() => {
-    if (!prediction?.priceData || !canvasRef.current) return;
+    if (!activeData?.priceData || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -38,7 +49,7 @@ export default function PredictionChart({ prediction }: PredictionChartProps) {
     const chartHeight = rect.height - 2 * padding;
 
     // Process data
-    const data = prediction.priceData || [];
+    const data = activeData.priceData || [];
     if (data.length === 0) return;
 
     const prices = data.map(d => d.actual || d.predicted).filter(p => p !== null);
@@ -119,9 +130,9 @@ export default function PredictionChart({ prediction }: PredictionChartProps) {
       }
     });
 
-  }, [prediction]);
+  }, [activeData]);
 
-  if (!prediction) {
+  if (!activeData) {
     return (
       <div className="bg-card-bg rounded-xl p-6 border border-slate-700">
         <div className="text-center py-8">
@@ -131,9 +142,9 @@ export default function PredictionChart({ prediction }: PredictionChartProps) {
     );
   }
 
-  const confidence = parseFloat(prediction.confidence);
-  const currentPrice = parseFloat(prediction.currentPrice);
-  const predictedPrice = parseFloat(prediction.predictedPrice);
+  const confidence = parseFloat(activeData.confidence);
+  const currentPrice = parseFloat(activeData.currentPrice);
+  const predictedPrice = parseFloat(activeData.predictedPrice);
   const changePercent = ((predictedPrice - currentPrice) / currentPrice) * 100;
 
   return (
@@ -142,29 +153,45 @@ export default function PredictionChart({ prediction }: PredictionChartProps) {
         <div>
           <h3 className="text-lg font-semibold text-white" data-testid="chart-title">AI Price Prediction</h3>
           <p className="text-sm text-slate-400">
-            Prophet ML model • {prediction.modelAccuracy || "72"}% accuracy last 30 days
+            Prophet ML model • {activeData.modelAccuracy || "72"}% accuracy last 30 days
           </p>
         </div>
         <div className="flex space-x-2">
           <Button 
-            variant="outline" 
+            variant={selectedTimeframe === '1h' ? 'default' : 'outline'}
             size="sm" 
-            className="text-xs bg-slate-700 text-slate-300 px-3 py-1"
+            className={`text-xs px-3 py-1 ${
+              selectedTimeframe === '1h' 
+                ? 'bg-bitcoin text-dark-bg' 
+                : 'bg-slate-700 text-slate-300'
+            }`}
+            onClick={() => setSelectedTimeframe('1h')}
             data-testid="button-timeframe-1h"
           >
             1H
           </Button>
           <Button 
+            variant={selectedTimeframe === '6h' ? 'default' : 'outline'}
             size="sm" 
-            className="text-xs bg-bitcoin text-dark-bg px-3 py-1"
+            className={`text-xs px-3 py-1 ${
+              selectedTimeframe === '6h' 
+                ? 'bg-bitcoin text-dark-bg' 
+                : 'bg-slate-700 text-slate-300'
+            }`}
+            onClick={() => setSelectedTimeframe('6h')}
             data-testid="button-timeframe-6h"
           >
             6H
           </Button>
           <Button 
-            variant="outline" 
+            variant={selectedTimeframe === '24h' ? 'default' : 'outline'}
             size="sm" 
-            className="text-xs bg-slate-700 text-slate-300 px-3 py-1"
+            className={`text-xs px-3 py-1 ${
+              selectedTimeframe === '24h' 
+                ? 'bg-bitcoin text-dark-bg' 
+                : 'bg-slate-700 text-slate-300'
+            }`}
+            onClick={() => setSelectedTimeframe('24h')}
             data-testid="button-timeframe-24h"
           >
             24H
@@ -184,7 +211,7 @@ export default function PredictionChart({ prediction }: PredictionChartProps) {
       {/* Prediction Summary */}
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-slate-800 rounded-lg p-4" data-testid="prediction-summary-price">
-          <div className="text-sm text-slate-400">Next {prediction.timeHorizon}H Prediction</div>
+          <div className="text-sm text-slate-400">Next {selectedTimeframe.toUpperCase()} Prediction</div>
           <div className={`text-lg font-semibold ${changePercent >= 0 ? 'text-success' : 'text-danger'}`}>
             ${predictedPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ({changePercent >= 0 ? '+' : ''}{changePercent.toFixed(1)}%)
           </div>
@@ -196,10 +223,10 @@ export default function PredictionChart({ prediction }: PredictionChartProps) {
         <div className="bg-slate-800 rounded-lg p-4" data-testid="prediction-summary-risk">
           <div className="text-sm text-slate-400">Risk Level</div>
           <div className={`text-lg font-semibold capitalize ${
-            prediction.riskLevel === 'high' ? 'text-danger' : 
-            prediction.riskLevel === 'medium' ? 'text-bitcoin' : 'text-success'
+            activeData.riskLevel === 'high' ? 'text-danger' : 
+            activeData.riskLevel === 'medium' ? 'text-bitcoin' : 'text-success'
           }`}>
-            {prediction.riskLevel}
+            {activeData.riskLevel}
           </div>
         </div>
       </div>

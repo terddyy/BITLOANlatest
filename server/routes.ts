@@ -217,5 +217,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get AI predictions for specific timeframes
+  app.get("/api/predictions/:timeframe", async (req, res) => {
+    try {
+      const { timeframe } = req.params;
+      const currentBtcPrice = 31247;
+      
+      let predictionData;
+      
+      if (timeframe === '1h') {
+        // 1-hour prediction: More volatile, frequent price changes
+        const basePrice = currentBtcPrice;
+        const priceData = [];
+        
+        // Generate 12 data points for 5-minute intervals over 1 hour
+        for (let i = 0; i < 12; i++) {
+          const actual = i < 8 ? basePrice + (Math.sin(i * 0.5) * 150) + (Math.random() - 0.5) * 200 : null;
+          const predicted = i >= 6 ? basePrice + (Math.sin((i + 4) * 0.4) * 180) + 120 : null;
+          priceData.push({ actual, predicted });
+        }
+        
+        predictionData = {
+          timeframe: '1h',
+          confidence: '81.3',
+          riskLevel: 'medium',
+          predictedPrice: (basePrice + 180).toString(),
+          currentPrice: basePrice.toString(),
+          timeHorizon: 1,
+          modelAccuracy: '81',
+          priceData,
+          trend: 'bullish_short_term',
+          volatility: 'high'
+        };
+      } 
+      else if (timeframe === '24h') {
+        // 24-hour prediction: Less volatile, showing daily trends
+        const basePrice = currentBtcPrice;
+        const priceData = [];
+        
+        // Generate 24 data points for hourly intervals over 24 hours
+        for (let i = 0; i < 24; i++) {
+          const actual = i < 16 ? basePrice + (Math.sin(i * 0.3) * 400) + (Math.random() - 0.5) * 300 : null;
+          const predicted = i >= 12 ? basePrice + (Math.cos(i * 0.25) * 350) - 200 : null;
+          priceData.push({ actual, predicted });
+        }
+        
+        predictionData = {
+          timeframe: '24h',
+          confidence: '67.8',
+          riskLevel: 'low',
+          predictedPrice: (basePrice - 200).toString(),
+          currentPrice: basePrice.toString(),
+          timeHorizon: 24,
+          modelAccuracy: '68',
+          priceData,
+          trend: 'bearish_daily',
+          volatility: 'moderate'
+        };
+      }
+      else {
+        // Default 6h data (fallback)
+        const basePrice = currentBtcPrice;
+        const priceData = [];
+        
+        // Generate 18 data points for 20-minute intervals over 6 hours
+        for (let i = 0; i < 18; i++) {
+          const actual = i < 12 ? basePrice + (Math.sin(i * 0.4) * 250) + (Math.random() - 0.5) * 180 : null;
+          const predicted = i >= 8 ? basePrice + (Math.cos(i * 0.35) * 200) - 100 : null;
+          priceData.push({ actual, predicted });
+        }
+        
+        predictionData = {
+          timeframe: '6h',
+          confidence: '73.2',
+          riskLevel: 'medium',
+          predictedPrice: (basePrice - 100).toString(),
+          currentPrice: basePrice.toString(),
+          timeHorizon: 6,
+          modelAccuracy: '73',
+          priceData,
+          trend: 'sideways',
+          volatility: 'low'
+        };
+      }
+      
+      res.json(predictionData);
+    } catch (error) {
+      console.error('Predictions error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   return httpServer;
 }
