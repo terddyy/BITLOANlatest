@@ -12,7 +12,7 @@ export default function Loans() {
 
   return (
     <div className="min-h-screen bg-dark-bg text-slate-100">
-      <Navigation user={dashboardData?.user || { username: "Guest" }} />
+      <Navigation user={dashboardData?.user || { username: "Guest", walletAddress: null }} />
       
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">

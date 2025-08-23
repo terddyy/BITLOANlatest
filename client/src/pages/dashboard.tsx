@@ -34,24 +34,22 @@ export default function Dashboard() {
     );
   }
 
-  if (!dashboardData) {
-    return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-danger text-lg mb-2">Failed to load dashboard</p>
-          <p className="text-slate-400">Please try refreshing the page</p>
-        </div>
-      </div>
-    );
-  }
+  // Create safe data with fallbacks
+  const safeData = dashboardData || {
+    user: { username: "Guest", walletAddress: null },
+    stats: { totalCollateral: 0, totalBorrowed: 0, activeLoanCount: 0, healthFactor: 0, btcPrice: { price: 0, change: 0, changePercent: 0 } },
+    prediction: null,
+    alerts: [],
+    loanPositions: []
+  };
 
   // Use real-time data if available, otherwise fall back to API data
-  const currentBtcPrice = realtimeData?.btcPrice || dashboardData?.stats?.btcPrice;
-  const currentPrediction = realtimeData?.prediction || dashboardData?.prediction;
+  const currentBtcPrice = realtimeData?.btcPrice || safeData.stats?.btcPrice || { price: 0, change: 0, changePercent: 0 };
+  const currentPrediction = realtimeData?.prediction || safeData.prediction;
 
   return (
     <div className="min-h-screen bg-dark-bg text-slate-100">
-      <Navigation user={dashboardData?.user || { username: "Guest" }} />
+      <Navigation user={safeData.user} />
       
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* AI Alert Banner */}
@@ -61,9 +59,9 @@ export default function Dashboard() {
 
         {/* Stats Grid */}
         <StatsGrid 
-          stats={dashboardData?.stats || {}}
-          btcPrice={currentBtcPrice || { price: 0, change: 0, changePercent: 0 }}
-          user={dashboardData?.user || { linkedWalletBalance: "0" }}
+          stats={safeData.stats}
+          btcPrice={currentBtcPrice}
+          user={safeData.user}
         />
 
         {/* Main Dashboard Grid */}
@@ -76,17 +74,17 @@ export default function Dashboard() {
           {/* Actions Panel */}
           <div className="space-y-6">
             <ProtectionPanel 
-              user={dashboardData?.user || { autoTopUpEnabled: false, smsAlertsEnabled: false, linkedWalletBalance: "0" }}
-              stats={dashboardData?.stats || { activeLoanCount: 0 }}
+              user={safeData.user}
+              stats={safeData.stats}
             />
-            <AlertsPanel alerts={dashboardData?.alerts || []} />
+            <AlertsPanel alerts={safeData.alerts} />
           </div>
         </div>
 
         {/* Loan Positions */}
         <LoanPositionsTable 
-          positions={dashboardData?.loanPositions || []}
-          btcPrice={currentBtcPrice || { price: 0 }}
+          positions={safeData.loanPositions}
+          btcPrice={currentBtcPrice}
         />
 
         {/* Performance Metrics */}
