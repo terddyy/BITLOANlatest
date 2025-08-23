@@ -7,6 +7,9 @@ export class AiPredictionService {
   private readonly windowSize = 24; // 24 hours of price data
 
   async generatePrediction(): Promise<void> {
+    // Prediction logic moved to client-side. This method will no longer generate predictions.
+    // However, it will still update the price window if needed for other server-side logic
+    // or if we decide to reintroduce server-side prediction in the future for specific use cases.
     try {
       const currentPrice = await storage.getLatestPrice("BTC");
       if (!currentPrice) return;
@@ -18,79 +21,23 @@ export class AiPredictionService {
       if (this.priceWindow.length > this.windowSize) {
         this.priceWindow.shift();
       }
-
-      if (this.priceWindow.length < 5) return; // Need minimum data
-
-      const prediction = this.calculatePrediction(price);
-      
-      await storage.createPrediction({
-        currentPrice: price.toString(),
-        predictedPrice: prediction.price.toString(),
-        timeHorizon: prediction.timeHorizon,
-        confidence: prediction.confidence.toString(),
-        riskLevel: prediction.riskLevel,
-        modelAccuracy: "72.5", // Simulated model accuracy
-        priceData: this.generateChartData(price, prediction.price),
-      });
-
-      // Check if we need to create alerts
-      await this.checkForAlerts(price, prediction);
+      // Since predictions are now client-side, we no longer store them here directly
+      // However, we might still want to call this method to populate the priceWindow
+      // if other server-side services (e.g., alerts) depend on it.
     } catch (error) {
-      console.error('Error generating AI prediction:', error);
+      console.error('Error updating AI prediction service price window:', error);
     }
   }
 
-  private calculatePrediction(currentPrice: number) {
-    // Simple trend analysis
-    const recentPrices = this.priceWindow.slice(-6); // Last 6 hours
-    const trend = this.calculateTrend(recentPrices);
-    const volatility = this.calculateVolatility(recentPrices);
-    
-    // Predict price change based on trend and volatility
-    const trendMultiplier = trend > 0 ? 0.8 : 1.2; // Bearish bias in volatile markets
-    const volatilityFactor = Math.min(volatility / 1000, 0.15); // Cap volatility impact
-    
-    const priceChange = trend * trendMultiplier + (Math.random() - 0.5) * volatilityFactor * currentPrice;
-    const predictedPrice = Math.max(currentPrice + priceChange, currentPrice * 0.7); // Min 30% drop
-    
-    const confidence = Math.max(50, 90 - volatility / 100); // Higher volatility = lower confidence
-    const riskLevel = this.determineRiskLevel(trend, volatility, priceChange);
-    
-    return {
-      price: predictedPrice,
-      timeHorizon: 2, // 2 hours ahead
-      confidence,
-      riskLevel,
-    };
-  }
+  // The following methods are no longer needed on the server as prediction logic moves to client
+  // private calculatePrediction(currentPrice: number) { /* ... */ }
+  // private calculateTrend(prices: number[]): number { /* ... */ }
+  // private calculateVolatility(prices: number[]): number { /* ... */ }
+  // private getDynamicModelAccuracy(): number { /* ... */ }
 
-  private calculateTrend(prices: number[]): number {
-    if (prices.length < 2) return 0;
-    
-    let sum = 0;
-    for (let i = 1; i < prices.length; i++) {
-      sum += prices[i] - prices[i - 1];
-    }
-    return sum / (prices.length - 1);
-  }
-
-  private calculateVolatility(prices: number[]): number {
-    if (prices.length < 2) return 0;
-    
-    const mean = prices.reduce((a, b) => a + b) / prices.length;
-    const variance = prices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / prices.length;
-    return Math.sqrt(variance);
-  }
-
-  private determineRiskLevel(trend: number, volatility: number, priceChange: number): string {
-    const changePercent = Math.abs(priceChange) / this.priceWindow[this.priceWindow.length - 1] * 100;
-    
-    if (changePercent > 10 || volatility > 2000) return "high";
-    if (changePercent > 5 || volatility > 1000) return "medium";
-    return "low";
-  }
-
-  private generateChartData(currentPrice: number, predictedPrice: number) {
+  // generateChartData is now simplified to only provide historical context if needed,
+  // without including predictions.
+  private generateChartData(currentPrice: number) {
     const now = new Date();
     const data = [];
     
@@ -104,42 +51,12 @@ export class AiPredictionService {
         predicted: null,
       });
     }
-    
-    // Prediction point
-    const futureTime = new Date(now.getTime() + (2 * 60 * 60 * 1000));
-    data.push({
-      time: futureTime.toISOString(),
-      actual: null,
-      predicted: predictedPrice,
-    });
-    
     return data;
   }
 
-  private async checkForAlerts(currentPrice: number, prediction: any) {
-    const priceDropThreshold = 0.05; // 5% drop threshold
-    const changePercent = (prediction.price - currentPrice) / currentPrice;
-    
-    if (changePercent < -priceDropThreshold && prediction.confidence > 60) {
-      // Get all users for demo - in real app, would be more targeted
-      const users = await storage.getUserByUsername("trader.eth");
-      if (users) {
-        await storage.createAlert({
-          userId: users.id,
-          type: "price_drop",
-          severity: "warning",
-          title: "AI Price Alert",
-          message: `BTC showing ${prediction.confidence}% probability of ${Math.abs(changePercent * 100).toFixed(1)}% dip in next ${prediction.timeHorizon} hours. Consider adding collateral.`,
-          isRead: false,
-          metadata: {
-            predictedChange: changePercent,
-            confidence: prediction.confidence,
-            timeHorizon: prediction.timeHorizon,
-          },
-        });
-      }
-    }
-  }
+  // Alerts logic could potentially be moved to client or refactored to use client-side predictions
+  // For now, removing it as it directly depends on the server-side prediction object.
+  // private async checkForAlerts(currentPrice: number, prediction: any) { /* ... */ }
 }
 
 export const aiPredictionService = new AiPredictionService();

@@ -4,7 +4,10 @@ import { Link, useLocation } from "wouter";
 interface NavigationProps {
   user: {
     username: string;
-    walletAddress?: string;
+    walletAddress?: string | null;
+    linkedWalletBalance?: string | null;
+    autoTopUpEnabled?: boolean | null;
+    smsAlertsEnabled?: boolean | null;
   };
 }
 

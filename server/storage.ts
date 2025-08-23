@@ -45,6 +45,7 @@ export interface IStorage {
   getLatestPrice(symbol: string): Promise<PriceHistory | undefined>;
   createPriceHistory(price: InsertPriceHistory): Promise<PriceHistory>;
   getPriceHistory(symbol: string, limit?: number): Promise<PriceHistory[]>;
+  getPastPrice(symbol: string, timeAgoMs: number): Promise<PriceHistory | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -365,6 +366,13 @@ export class MemStorage implements IStorage {
       .filter(price => price.symbol === symbol)
       .sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0))
       .slice(0, limit);
+  }
+
+  async getPastPrice(symbol: string, timeAgoMs: number): Promise<PriceHistory | undefined> {
+    const targetTime = new Date(Date.now() - timeAgoMs);
+    return Array.from(this.priceHistory.values())
+      .filter(price => price.symbol === symbol && price.timestamp! < targetTime)
+      .sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0))[0];
   }
 }
 

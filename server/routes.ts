@@ -9,6 +9,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // Start background services
+  await priceMonitorService.initialize();
   priceMonitorService.start();
 
   // WebSocket server for real-time updates
@@ -16,6 +17,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   wss.on('connection', (ws) => {
     console.log('WebSocket client connected');
+    console.log('Attempting to send initial data to new WebSocket client.');
     
     // Send initial data
     sendDataUpdate(ws);
@@ -31,6 +33,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('WebSocket client disconnected');
       clearInterval(interval);
     });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket server encountered error with client:', error);
+    });
   });
 
   async function sendDataUpdate(ws: WebSocket) {
@@ -38,6 +44,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const priceData = await priceMonitorService.getPriceChange24h();
       const latestPrediction = await storage.getLatestPrediction();
       
+      console.log('Sending WebSocket update:', { btcPrice: priceData, prediction: latestPrediction });
+
       const update = {
         type: 'price_update',
         data: {
@@ -47,9 +55,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       };
       
-      ws.send(JSON.stringify(update));
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify(update));
+        } catch (sendError) {
+          console.error('Error sending data to WebSocket:', sendError);
+        }
+      }
     } catch (error) {
-      console.error('Error sending WebSocket update:', error);
+      console.error('Error preparing or sending WebSocket update:', error);
     }
   }
 

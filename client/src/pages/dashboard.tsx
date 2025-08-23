@@ -2,17 +2,59 @@ import { useQuery } from "@tanstack/react-query";
 import Navigation from "@/components/navigation";
 import AiAlertBanner from "@/components/ai-alert-banner";
 import StatsGrid from "@/components/stats-grid";
-import PredictionChart from "@/components/prediction-chart";
 import ProtectionPanel from "@/components/protection-panel";
 import AlertsPanel from "@/components/alerts-panel";
 import LoanPositionsTable from "@/components/loan-positions-table";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useState, useEffect } from "react";
+import RealTimePriceChart from "@/components/real-time-price-chart";
+import { type LoanPosition, type Alert, type AiPrediction } from "@shared/schema";
+
+interface DashboardResponse {
+  user: {
+    username: string;
+    walletAddress?: string | null;
+    linkedWalletBalance: string;
+    autoTopUpEnabled: boolean;
+    smsAlertsEnabled: boolean;
+  };
+  stats: {
+    btcPrice: { price: number; change: number; changePercent: number };
+    totalCollateral: number;
+    healthFactor: number;
+    activeLoanCount: number;
+    totalBorrowed: number;
+  };
+  loanPositions: {
+    id: string;
+    positionName: string;
+    collateralBtc: string;
+    collateralUsdt: string;
+    borrowedAmount: string;
+    apr: string;
+    healthFactor: string;
+    isProtected: boolean;
+    createdAt: string;
+    updatedAt?: string | null;
+    liquidationPrice?: string | null;
+  }[];
+  alerts: {
+    id: string;
+    type: string;
+    severity: string;
+    title: string;
+    message: string;
+    isRead: boolean;
+    createdAt: string;
+    metadata?: any | null;
+  }[];
+  prediction: AiPrediction | null;
+}
 
 export default function Dashboard() {
   const [realtimeData, setRealtimeData] = useState<any>(null);
   
-  const { data: dashboardData, isLoading } = useQuery({
+  const { data: dashboardData, isLoading } = useQuery<DashboardResponse>({
     queryKey: ["/api/dashboard"],
   });
 
@@ -35,17 +77,16 @@ export default function Dashboard() {
   }
 
   // Create safe data with fallbacks
-  const safeData = dashboardData || {
-    user: { username: "Guest", walletAddress: null },
+  const safeData: DashboardResponse = dashboardData || {
+    user: { username: "Guest", walletAddress: null, linkedWalletBalance: "0.00", autoTopUpEnabled: false, smsAlertsEnabled: false },
     stats: { totalCollateral: 0, totalBorrowed: 0, activeLoanCount: 0, healthFactor: 0, btcPrice: { price: 0, change: 0, changePercent: 0 } },
     prediction: null,
     alerts: [],
-    loanPositions: []
+    loanPositions: [],
   };
 
   // Use real-time data if available, otherwise fall back to API data
   const currentBtcPrice = realtimeData?.btcPrice || safeData.stats?.btcPrice || { price: 0, change: 0, changePercent: 0 };
-  const currentPrediction = realtimeData?.prediction || safeData.prediction;
 
   return (
     <div className="min-h-screen bg-dark-bg text-slate-100">
@@ -53,8 +94,8 @@ export default function Dashboard() {
       
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* AI Alert Banner */}
-        {currentPrediction && (
-          <AiAlertBanner prediction={currentPrediction} />
+        {safeData.prediction && (
+          <AiAlertBanner prediction={safeData.prediction} />
         )}
 
         {/* Stats Grid */}
@@ -66,9 +107,9 @@ export default function Dashboard() {
 
         {/* Main Dashboard Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-          {/* AI Prediction Chart */}
+          {/* Real-time Price Chart */}
           <div className="lg:col-span-2">
-            <PredictionChart prediction={currentPrediction} />
+            <RealTimePriceChart />
           </div>
 
           {/* Actions Panel */}

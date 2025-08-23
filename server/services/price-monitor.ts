@@ -1,11 +1,18 @@
 import { storage } from "../storage";
 import { aiPredictionService } from "./ai-prediction";
 
+const COINGECKO_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd";
+
 export class PriceMonitorService {
   private isRunning = false;
   private intervalId: NodeJS.Timeout | null = null;
 
-  start() {
+  async initialize() {
+    console.log('Initializing price monitoring service...');
+    await this.updatePrice(); // Ensure initial price data is loaded
+  }
+
+  async start() {
     if (this.isRunning) return;
     
     this.isRunning = true;
@@ -13,16 +20,13 @@ export class PriceMonitorService {
     
     // Update price every 30 seconds (in production, would be real-time WebSocket)
     this.intervalId = setInterval(async () => {
-      await this.updatePrice();
+      await this.updatePrice().catch(error => console.error('Error in scheduled price update:', error));
     }, 30000);
 
     // Generate AI predictions every 5 minutes
     setInterval(async () => {
-      await aiPredictionService.generatePrediction();
+      await aiPredictionService.generatePrediction().catch(error => console.error('Error in scheduled AI prediction:', error));
     }, 5 * 60 * 1000);
-
-    // Initial price update
-    this.updatePrice();
   }
 
   stop() {
@@ -35,40 +39,58 @@ export class PriceMonitorService {
   }
 
   private async updatePrice() {
+    let currentPrice: number | undefined;
     try {
-      // Simulate Binance API call - in production, would use real API
-      const mockPrice = await this.fetchMockBinancePrice();
-      
+      currentPrice = await this.fetchCoinGeckoPrice();
+      console.log('Fetched price from CoinGecko:', currentPrice);
+    } catch (coinGeckoError) {
+      console.error('CoinGecko fetch failed, falling back to mock price:', coinGeckoError);
+      const lastPrice = await storage.getLatestPrice("BTC");
+      currentPrice = lastPrice ? parseFloat(lastPrice.price) : 31247.82; // Fallback to last known or default price
+      console.log('Using fallback mock price:', currentPrice);
+    }
+
+    if (currentPrice === undefined) {
+      console.error('Could not determine a price from any source. Skipping price update.');
+      return;
+    }
+    
+    try {
       await storage.createPriceHistory({
         symbol: "BTC",
-        price: mockPrice.toString(),
-        source: "binance",
+        price: currentPrice.toString(),
+        source: "coin_gecko_fallback", // Indicate the source of the price
       });
 
-      // Simulate Chainlink price feed as backup
-      const chainlinkPrice = mockPrice * (0.998 + Math.random() * 0.004); // Slight variance
+      // Simulate CoinGecko price feed as backup for demonstration
+      const coinGeckoPrice = currentPrice * (0.998 + Math.random() * 0.004); // Slight variance
       await storage.createPriceHistory({
         symbol: "BTC",
-        price: chainlinkPrice.toString(),
-        source: "chainlink",
+        price: coinGeckoPrice.toString(),
+        source: "coin_gecko_simulated",
       });
 
     } catch (error) {
-      console.error('Error updating price:', error);
+      console.error('Error updating price history:', error);
     }
   }
 
-  private async fetchMockBinancePrice(): Promise<number> {
-    // Mock realistic BTC price movement
-    const lastPrice = await storage.getLatestPrice("BTC");
-    const basePrice = lastPrice ? parseFloat(lastPrice.price) : 31247.82;
-    
-    // Simulate realistic price volatility
-    const volatility = 0.002; // 0.2% max change per update
-    const randomChange = (Math.random() - 0.5) * 2 * volatility;
-    const trendBias = -0.0005; // Slight bearish trend for demo
-    
-    return basePrice * (1 + randomChange + trendBias);
+  private async fetchCoinGeckoPrice(): Promise<number> {
+    try {
+      const response = await fetch(COINGECKO_API_URL);
+      if (!response.ok) {
+        throw new Error(`CoinGecko API error: ${response.statusText}`);
+      }
+      const data = await response.json();
+      if (data && data.bitcoin && data.bitcoin.usd) {
+        return parseFloat(data.bitcoin.usd);
+      } else {
+        throw new Error('Invalid data structure from CoinGecko API');
+      }
+    } catch (error) {
+      console.error('Failed to fetch CoinGecko price:', error);
+      throw error; // Re-throw to allow fallback mechanism in updatePrice
+    }
   }
 
   async getCurrentPrice(): Promise<number> {
@@ -78,7 +100,8 @@ export class PriceMonitorService {
 
   async getPriceChange24h(): Promise<{ price: number; change: number; changePercent: number }> {
     const current = await this.getCurrentPrice();
-    const yesterdayPrice = current * 1.044; // Mock 24h ago price (higher for negative change)
+    const yesterdayPriceData = await storage.getPastPrice("BTC", 24 * 60 * 60 * 1000); // Get price 24 hours ago
+    const yesterdayPrice = yesterdayPriceData ? parseFloat(yesterdayPriceData.price) : current * 1.044; // Fallback to mock if no data
     
     const change = current - yesterdayPrice;
     const changePercent = (change / yesterdayPrice) * 100;
@@ -92,3 +115,4 @@ export class PriceMonitorService {
 }
 
 export const priceMonitorService = new PriceMonitorService();
+

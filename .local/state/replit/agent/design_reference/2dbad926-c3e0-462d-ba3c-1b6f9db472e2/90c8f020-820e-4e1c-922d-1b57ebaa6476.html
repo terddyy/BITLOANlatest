@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BitLoan - AI-Powered BTC Collateral Protection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                fontFamily: {
+                    'sans': ['Inter', 'sans-serif'],
+                },
+                colors: {
+                    'bitcoin': '#F59E0B',
+                    'success': '#10B981',
+                    'danger': '#EF4444',
+                    'info': '#3B82F6',
+                    'dark-bg': '#0F172A',
+                    'card-bg': '#1E293B',
+                }
+            }
+        }
+    };
+    </script>
+</head>
+<body class="bg-dark-bg text-slate-100 font-sans">
+    <!-- Navigation Header -->
+    <nav class="bg-card-bg border-b border-slate-700 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-8">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-bitcoin rounded-full flex items-center justify-center">
+                        <span class="text-dark-bg font-bold text-sm">₿</span>
+                    </div>
+                    <h1 class="text-xl font-bold text-white">BitLoan</h1>
+                </div>
+                <div class="hidden md:flex space-x-6">
+                    <a href="#" class="text-bitcoin font-medium">Dashboard</a>
+                    <a href="#" class="text-slate-400 hover:text-white transition-colors">Loans</a>
+                    <a href="#" class="text-slate-400 hover:text-white transition-colors">AI Protection</a>
+                    <a href="#" class="text-slate-400 hover:text-white transition-colors">Analytics</a>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <button class="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5-5 5-5H8l-5 5z"/>
+                        </svg>
+                    </button>
+                    <span class="absolute -top-1 -right-1 bg-danger text-xs rounded-full h-4 w-4 flex items-center justify-center">3</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-gradient-to-br from-bitcoin to-yellow-500 rounded-full"></div>
+                    <span class="hidden sm:block text-sm font-medium">trader.eth</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-6 py-8">
+        
+        <!-- AI Alert Banner -->
+        <div class="bg-gradient-to-r from-bitcoin/20 to-yellow-500/20 border border-bitcoin/30 rounded-xl p-4 mb-8">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 bg-bitcoin/20 rounded-full flex items-center justify-center">
+                            <svg class="w-5 h-5 text-bitcoin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-bitcoin font-semibold">AI Price Alert</h3>
+                        <p class="text-sm text-slate-300">BTC showing 73% probability of 12-18% dip in next 4-6 hours. Consider adding collateral.</p>
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    <button class="bg-bitcoin hover:bg-yellow-500 text-dark-bg px-4 py-2 rounded-lg font-medium text-sm transition-colors">
+                        Auto Top-Up
+                    </button>
+                    <button class="border border-bitcoin text-bitcoin hover:bg-bitcoin/10 px-4 py-2 rounded-lg font-medium text-sm transition-colors">
+                        View Details
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            
+            <!-- BTC Price -->
+            <div class="bg-card-bg rounded-xl p-6 border border-slate-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-medium text-slate-400">BTC Price</h3>
+                    <div class="flex items-center space-x-1">
+                        <div class="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+                        <span class="text-xs text-success">Live</span>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <div class="text-2xl font-bold text-white" data-bind="btcPrice.current">$115,539.80</div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-danger text-sm font-medium">-4.2%</span>
+                        <span class="text-slate-400 text-sm">24h</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Collateral -->
+            <div class="bg-card-bg rounded-xl p-6 border border-slate-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-medium text-slate-400">Total Collateral</h3>
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                    </svg>
+                </div>
+                <div class="space-y-2">
+                    <div class="text-2xl font-bold text-white" data-bind="collateral.total">$18,748.69</div>
+                    <div class="text-sm text-slate-400">1.25 BTC + 3,200 USDT</div>
+                </div>
+            </div>
+
+            <!-- Collateral Ratio -->
+            <div class="bg-card-bg rounded-xl p-6 border border-slate-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-medium text-slate-400">Health Factor</h3>
+                    <div class="flex items-center space-x-1">
+                        <div class="w-2 h-2 bg-bitcoin rounded-full"></div>
+                        <span class="text-xs text-bitcoin">Warning</span>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <div class="text-2xl font-bold text-bitcoin" data-bind="healthFactor">1.34</div>
+                    <div class="text-sm text-slate-400">Safe: >1.5 | Danger: <1.2</div>
+                </div>
+            </div>
+
+            <!-- Active Loans -->
+            <div class="bg-card-bg rounded-xl p-6 border border-slate-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-medium text-slate-400">Active Loans</h3>
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div class="space-y-2">
+                    <div class="text-2xl font-bold text-white" data-bind="loans.total">$14,000</div>
+                    <div class="text-sm text-slate-400">3 positions | 8.5% APR</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- AI Prediction Chart -->
+            <div class="lg:col-span-2 bg-card-bg rounded-xl p-6 border border-slate-700">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">AI Price Prediction</h3>
+                        <p class="text-sm text-slate-400">Prophet ML model • 72% accuracy last 30 days</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button class="text-xs bg-slate-700 text-slate-300 px-3 py-1 rounded-lg">1H</button>
+                        <button class="text-xs bg-bitcoin text-dark-bg px-3 py-1 rounded-lg">6H</button>
+                        <button class="text-xs bg-slate-700 text-slate-300 px-3 py-1 rounded-lg">24H</button>
+                    </div>
+                </div>
+                
+                <!-- Chart Canvas -->
+                <div class="relative h-64">
+                    <canvas id="predictionChart" class="w-full h-full"></canvas>
+                </div>
+                
+                <!-- Prediction Summary -->
+                <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-slate-800 rounded-lg p-4">
+                        <div class="text-sm text-slate-400">Next 2H Prediction</div>
+                        <div class="text-lg font-semibold text-danger">$29,850 (-4.5%)</div>
+                    </div>
+                    <div class="bg-slate-800 rounded-lg p-4">
+                        <div class="text-sm text-slate-400">Confidence Level</div>
+                        <div class="text-lg font-semibold text-bitcoin">73%</div>
+                    </div>
+                    <div class="bg-slate-800 rounded-lg p-4">
+                        <div class="text-sm text-slate-400">Risk Level</div>
+                        <div class="text-lg font-semibold text-bitcoin">Medium</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions Panel -->
+            <div class="space-y-6">
+                
+                <!-- Protection Status -->
+                <div class="bg-card-bg rounded-xl p-6 border border-slate-700">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold text-white">AI Protection</h3>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-success rounded-full"></div>
+                            <span class="text-xs text-success font-medium">ACTIVE</span>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-slate-400">Auto Top-Up</span>
+                            <div class="relative">
+                                <input type="checkbox" checked class="sr-only peer" data-mock="true">
+                                <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-bitcoin/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-bitcoin"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-slate-400">SMS Alerts</span>
+                            <div class="relative">
+                                <input type="checkbox" checked class="sr-only peer" data-mock="true">
+                                <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-bitcoin/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-bitcoin"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-4 border-t border-slate-700">
+                            <div class="text-sm text-slate-400 mb-2">Linked Wallet Balance</div>
+                            <div class="text-lg font-semibold text-white">8,450 USDT</div>
+                        </div>
+                        
+                        <button class="w-full bg-bitcoin hover:bg-yellow-500 text-dark-bg font-semibold py-3 rounded-lg transition-colors" data-event="click:handleManualTopUp">
+                            Manual Top-Up
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Alerts -->
+                <div class="bg-card-bg rounded-xl p-6 border border-slate-700">
+                    <h3 class="font-semibold text-white mb-4">Recent Alerts</h3>
+                    
+                    <div class="space-y-3">
+                        <div class="flex items-start space-x-3 p-3 bg-slate-800 rounded-lg">
+                            <div class="flex-shrink-0 w-2 h-2 bg-bitcoin rounded-full mt-2"></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium text-white">Price Drop Detected</div>
+                                <div class="text-xs text-slate-400">2 min ago</div>
+                                <div class="text-xs text-slate-300 mt-1">BTC dropped 3.2% in 15min</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start space-x-3 p-3 bg-slate-800 rounded-lg">
+                            <div class="flex-shrink-0 w-2 h-2 bg-success rounded-full mt-2"></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium text-white">Auto Top-Up Success</div>
+                                <div class="text-xs text-slate-400">18 min ago</div>
+                                <div class="text-xs text-slate-300 mt-1">Added 1,500 USDT collateral</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start space-x-3 p-3 bg-slate-800 rounded-lg">
+                            <div class="flex-shrink-0 w-2 h-2 bg-info rounded-full mt-2"></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium text-white">AI Model Update</div>
+                                <div class="text-xs text-slate-400">2h ago</div>
+                                <div class="text-xs text-slate-300 mt-1">Accuracy improved to 74.2%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loan Positions -->
+        <div class="mt-8 bg-card-bg rounded-xl border border-slate-700">
+            <div class="p-6 border-b border-slate-700">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-white">Active Loan Positions</h3>
+                    <button class="text-sm bg-bitcoin hover:bg-yellow-500 text-dark-bg px-4 py-2 rounded-lg font-medium transition-colors">
+                        New Loan
+                    </button>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-slate-800">
+                        <tr>
+                            <th class="text-left py-3 px-6 text-sm font-medium text-slate-400">Position</th>
+                            <th class="text-left py-3 px-6 text-sm font-medium text-slate-400">Collateral</th>
+                            <th class="text-left py-3 px-6 text-sm font-medium text-slate-400">Borrowed</th>
+                            <th class="text-left py-3 px-6 text-sm font-medium text-slate-400">Health Factor</th>
+                            <th class="text-left py-3 px-6 text-sm font-medium text-slate-400">APR</th>
+                            <th class="text-left py-3 px-6 text-sm font-medium text-slate-400">Status</th>
+                            <th class="text-left py-3 px-6 text-sm font-medium text-slate-400">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700" data-mock="true">
+                        <tr class="hover:bg-slate-800/50 transition-colors">
+                            <td class="py-4 px-6">
+                                <div>
+                                    <div class="font-medium text-white">BTC-001</div>
+                                    <div class="text-sm text-slate-400">Opened 3 days ago</div>
+                                </div>
+                            </td>
+                            <td class="py-4 px-6">
+                                <div>
+                                    <div class="text-white">0.45 BTC</div>
+                                    <div class="text-sm text-slate-400">$14,061</div>
+                                </div>
+                            </td>
+                            <td class="py-4 px-6">
+                                <div>
+                                    <div class="text-white">$8,500</div>
+                                    <div class="text-sm text-slate-400">8,500 USDT</div>
+                                </div>
+                            </td>
+                            <td class="py-4 px-6">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-bitcoin font-medium">1.28</span>
+                                    <span class="text-xs bg-bitcoin/20 text-bitcoin px-2 py-1 rounded">Warning</span>
+                                </div>
+                            </td>
+                            <td class="py-4 px-6 text-white">8.5%</td>
+                            <td class="py-4 px-6">
+                                <span class="text-xs bg-success/20 text-success px-2 py-1 rounded font-medium">Protected</span>
+                            </td>
+                            <td class="py-4 px-6">
+                                <div class="flex space-x-2">
+                                    <button class="text-sm bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded transition-colors">
+                                        Top-Up
+                                    </button>
+                                    <button class="text-sm text-slate-400 hover:text-white px-3 py-1 rounded transition-colors">
+                                        Details
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        
+                        <tr class="hover:bg-slate-800/50 transition-colors">
+                            <td class="py-4 px-6">
+                                <div>
+                                    <div class="font-medium text-white">BTC-002</div>
+                                    <div class="text-sm text-slate-400">Opened 1 week ago</div>
+                                </div>
+                            </td>
+                            <td class="py-4 px-6">
+                                <div>
+                                    <div class="text-white">0.32 BTC</div>
+                                    <div class="text-sm text-slate-400">$9,999</div>
+                                </div>
+                            </td>
+                            <td class="py-4 px-6">
+                                <div>
+                                    <div class="text-white">$5,500</div>
+                                    <div class="text-sm text-slate-400">5,500 USDT</div>
+                                </div>
+                            </td>
+                            <td class="py-4 px-6">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-success font-medium">1.82</span>
+                                    <span class="text-xs bg-success/20 text-success px-2 py-1 rounded">Safe</span>
+                                </div>
+                            </td>
+                            <td class="py-4 px-6 text-white">8.2%</td>
+                            <td class="py-4 px-6">
+                                <span class="text-xs bg-success/20 text-success px-2 py-1 rounded font-medium">Protected</span>
+                            </td>
+                            <td class="py-4 px-6">
+                                <div class="flex space-x-2">
+                                    <button class="text-sm bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded transition-colors">
+                                        Top-Up
+                                    </button>
+                                    <button class="text-sm text-slate-400 hover:text-white px-3 py-1 rounded transition-colors">
+                                        Details
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-card-bg rounded-xl p-6 border border-slate-700 text-center">
+                <div class="text-2xl font-bold text-success mb-2">23</div>
+                <div class="text-sm text-slate-400">Liquidations Prevented</div>
+            </div>
+            <div class="bg-card-bg rounded-xl p-6 border border-slate-700 text-center">
+                <div class="text-2xl font-bold text-bitcoin mb-2">$47,830</div>
+                <div class="text-sm text-slate-400">BTC Saved</div>
+            </div>
+            <div class="bg-card-bg rounded-xl p-6 border border-slate-700 text-center">
+                <div class="text-2xl font-bold text-info mb-2">94.2%</div>
+                <div class="text-sm text-slate-400">Protection Success Rate</div>
+            </div>
+            <div class="bg-card-bg rounded-xl p-6 border border-slate-700 text-center">
+                <div class="text-2xl font-bold text-white mb-2">1.8s</div>
+                <div class="text-sm text-slate-400">Avg Response Time</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        // Initialize prediction chart
+        const ctx = document.getElementById('predictionChart').getContext('2d');
+        
+        // Mock price data for the last 24 hours and predictions for next 6 hours
+        const now = new Date();
+        const labels = [];
+        const actualData = [];
+        const predictedData = [];
+        
+        // Generate historical data (last 24 hours)
+        for (let i = 24; i >= 0; i--) {
+            const time = new Date(now.getTime() - (i * 60 * 60 * 1000));
+            labels.push(time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+            
+            // Simulate price decline with some volatility
+            const basePrice = 31500;
+            const decline = Math.max(0, (24 - i) * 20); // Gradual decline
+            const volatility = (Math.random() - 0.5) * 200;
+            actualData.push(basePrice - decline + volatility);
+            predictedData.push(null);
+        }
+        
+        // Generate prediction data (next 6 hours)
+        for (let i = 1; i <= 6; i++) {
+            const time = new Date(now.getTime() + (i * 60 * 60 * 1000));
+            labels.push(time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+            
+            actualData.push(null);
+            
+            // Predicted further decline then recovery
+            const currentPrice = actualData[actualData.length - 7];
+            const prediction = i <= 3 ? currentPrice - (i * 300) : currentPrice - 900 + ((i - 3) * 200);
+            predictedData.push(prediction);
+        }
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Actual Price',
+                        data: actualData,
+                        borderColor: '#F59E0B',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 6,
+                    },
+                    {
+                        label: 'AI Prediction',
+                        data: predictedData,
+                        borderColor: '#EF4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: '#EF4444',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        labels: {
+                            color: '#94A3B8',
+                            usePointStyle: true,
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)',
+                        },
+                        ticks: {
+                            color: '#64748B',
+                            maxTicksLimit: 8,
+                        }
+                    },
+                    y: {
+                        display: true,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)',
+                        },
+                        ticks: {
+                            color: '#64748B',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
+                elements: {
+                    point: {
+                        hoverBorderWidth: 3,
+                    }
+                }
+            }
+        });
+
+        // Simulate real-time price updates
+        function updatePrices() {
+            // TODO: Implement WebSocket connection to real-time price feeds
+            // This would connect to Binance API and Chainlink price feeds
+            console.log('Real-time price update simulation');
+        }
+
+        // Simulate auto top-up functionality
+        function handleAutoTopUp() {
+            // TODO: Implement smart contract interaction for automated collateral management
+            console.log('Auto top-up functionality would be implemented here');
+        }
+
+        // Start real-time updates
+        setInterval(updatePrices, 5000);
+        
+        // Handle manual top-up button
+        document.querySelector('[data-event="click:handleManualTopUp"]').addEventListener('click', function() {
+            // TODO: Implement manual top-up flow with wallet integration
+            console.log('Manual top-up initiated');
+        });
+    })();
+    </script>
+</body>
+</html>

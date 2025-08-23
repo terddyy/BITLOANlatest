@@ -6,8 +6,13 @@ export function useWebSocket(path: string, onMessage: (data: any) => void) {
 
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}${path}`;
-    
+    const hostname = window.location.hostname; // Get hostname without port
+    const port = window.location.port ? `:${window.location.port}` : ''; // Get port if available
+    const wsUrl = `${protocol}//${hostname}${port}${path}`;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 10; // To prevent infinite loops
+    const RECONNECT_INTERVAL = 3000; // 3 seconds
+
     const connect = () => {
       setConnectionStatus('connecting');
       ws.current = new WebSocket(wsUrl);
@@ -30,12 +35,18 @@ export function useWebSocket(path: string, onMessage: (data: any) => void) {
         console.log('WebSocket disconnected');
         setConnectionStatus('disconnected');
         
-        // Reconnect after 3 seconds
-        setTimeout(() => {
-          if (ws.current?.readyState === WebSocket.CLOSED) {
-            connect();
-          }
-        }, 3000);
+        // Reconnect after 3 seconds, up to MAX_RECONNECT_ATTEMPTS
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts++;
+          console.log(`Attempting to reconnect WebSocket (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+          setTimeout(() => {
+            if (ws.current?.readyState === WebSocket.CLOSED) {
+              connect();
+            }
+          }, RECONNECT_INTERVAL);
+        } else {
+          console.log('Max WebSocket reconnect attempts reached. Please refresh the page.');
+        }
       };
 
       ws.current.onerror = (error) => {
