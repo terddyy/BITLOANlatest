@@ -4,6 +4,15 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { priceMonitorService } from "./services/price-monitor";
 import { aiPredictionService } from "./services/ai-prediction";
+import Notification from './models/Notification'; // Import the Notification model
+
+declare global {
+  namespace Express {
+    interface Request {
+      wss?: WebSocketServer;
+    }
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -14,6 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // WebSocket server for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  app.set('wss', wss); // Make wss accessible via app.get('wss')
   
   wss.on('connection', (ws) => {
     console.log('WebSocket client connected');
@@ -41,16 +51,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function sendDataUpdate(ws: WebSocket) {
     try {
-      const priceData = await priceMonitorService.getPriceChange24h();
-      const latestPrediction = await storage.getLatestPrediction();
+      const userId = "demo-user-id"; // Assuming a demo user for simplicity
+      const [priceData, loanPositions] = await Promise.all([
+        priceMonitorService.getPriceChange24h(),
+        // Removed storage.getLatestPrediction() as predictions are now client-side
+        storage.getLoanPositions(userId)
+      ]);
+
+      const avgHealthFactor = loanPositions.length > 0 
+        ? loanPositions.reduce((sum, pos) => sum + parseFloat(pos.healthFactor), 0) / loanPositions.length 
+        : 0;
       
-      console.log('Sending WebSocket update:', { btcPrice: priceData, prediction: latestPrediction });
+      console.log('Sending WebSocket update:', { btcPrice: priceData, healthFactor: avgHealthFactor });
 
       const update = {
         type: 'price_update',
         data: {
           btcPrice: priceData,
-          prediction: latestPrediction,
+          // Removed prediction as it's now client-side
+          healthFactor: avgHealthFactor, // Include health factor
+          loanPositions: loanPositions, // Include loan positions
           timestamp: new Date().toISOString(),
         },
       };
@@ -74,10 +94,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = "demo-user-id"; // In real app, get from session
       
-      const [user, loanPositions, alerts, priceData, prediction] = await Promise.all([
+      const [user, loanPositions, priceData, prediction] = await Promise.all([
         storage.getUser(userId),
         storage.getLoanPositions(userId),
-        storage.getAlerts(userId, 10),
+        // Removed alerts from here as they are now fetched from MongoDB
         priceMonitorService.getPriceChange24h(),
         storage.getLatestPrediction(),
       ]);
@@ -112,7 +132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalBorrowed,
         },
         loanPositions,
-        alerts,
+        // Removed alerts from here
         prediction,
       });
     } catch (error) {
@@ -231,6 +251,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // New endpoint to trigger server-side notifications
+  app.post("/api/notifications/trigger", async (req, res) => {
+    try {
+      const { riskLevel } = req.body;
+      const userId = "demo-user-id"; // Assuming a demo user for simplicity
+
+      const user = await storage.getUser(userId);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      console.log(`Received notification trigger for risk level: ${riskLevel}`);
+
+      // Save in-app notification to MongoDB
+      const newNotification = new Notification({
+        userId: user.id || userId, // Use user.id if available, otherwise fallback
+        message: `AI Price Alert: BTC showing ${riskLevel} risk level. Consider adding collateral.`,
+        type: 'price_alert',
+        isRead: false,
+        createdAt: new Date(),
+      });
+      await newNotification.save();
+      console.log("In-app notification saved to DB.");
+
+      // Emit new notification via WebSocket
+      const wss = req.app.get('wss');
+      if (wss) {
+        wss.clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+              type: 'new_notification',
+              data: newNotification,
+            }));
+          }
+        });
+        console.log("New notification emitted via WebSocket.");
+      }
+
+      if (user.smsAlertsEnabled) {
+        console.log(`Sending SMS notification for risk level: ${riskLevel}`);
+        // TODO: Integrate with a real SMS service (e.g., Twilio)
+      }
+
+      console.log(`Sending Email notification for risk level: ${riskLevel}`);
+      // TODO: Implement Email notification logic
+
+      res.json({ success: true, message: "Server-side notifications processed." });
+    } catch (error) {
+      console.error('Notification trigger error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // New endpoint to get notifications for a user
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const userId = "demo-user-id"; // Assuming a demo user for simplicity
+      const notifications = await Notification.find({ userId }).sort({ createdAt: -1 }).limit(20);
+      res.json(notifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get AI predictions for specific timeframes
   app.get("/api/predictions/:timeframe", async (req, res) => {
     try {
@@ -318,6 +404,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(predictionData);
     } catch (error) {
       console.error('Predictions error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // New endpoint to mark a notification as read
+  app.patch("/api/notifications/:id/read", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const notification = await Notification.findByIdAndUpdate(id, { isRead: true }, { new: true });
+
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      res.json({ success: true, notification });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

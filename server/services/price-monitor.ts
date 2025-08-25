@@ -45,9 +45,9 @@ export class PriceMonitorService {
       console.log('Fetched price from CoinGecko:', currentPrice);
     } catch (coinGeckoError) {
       console.error('CoinGecko fetch failed, falling back to mock price:', coinGeckoError);
-      const lastPrice = await storage.getLatestPrice("BTC");
-      currentPrice = lastPrice ? parseFloat(lastPrice.price) : 31247.82; // Fallback to last known or default price
-      console.log('Using fallback mock price:', currentPrice);
+        const lastPrice = await storage.getLatestPrice("BTC");
+        currentPrice = lastPrice ? parseFloat(lastPrice.price) : 31247.82; // Fallback to last known or default price
+        console.log('Using fallback mock price:', currentPrice);
     }
 
     if (currentPrice === undefined) {

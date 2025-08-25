@@ -1,5 +1,15 @@
 import { Bell } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { type Notification } from "@shared/schema";
+import { 
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "../components/ui/sheet";
+import AlertsPanel from "./alerts-panel";
 
 interface NavigationProps {
   user: {
@@ -13,6 +23,12 @@ interface NavigationProps {
 
 export default function Navigation({ user }: NavigationProps) {
   const [location] = useLocation();
+
+  const { data: notifications } = useQuery<Notification[]>({ // Fetch notifications
+    queryKey: ["/api/notifications"],
+  });
+
+  const unreadCount = notifications?.filter(notification => !notification.isRead).length || 0;
 
   const getLinkClass = (path: string) => {
     return location === path 
@@ -38,12 +54,26 @@ export default function Navigation({ user }: NavigationProps) {
           </div>
         </div>
         <div className="flex items-center space-x-4">
-          <div className="relative">
-            <button className="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-lg transition-colors" data-testid="button-notifications">
-              <Bell className="w-5 h-5" />
-            </button>
-            <span className="absolute -top-1 -right-1 bg-danger text-xs rounded-full h-4 w-4 flex items-center justify-center" data-testid="notification-count">3</span>
-          </div>
+          <Sheet>
+            <SheetTrigger asChild>
+              <button className="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-lg transition-colors relative" data-testid="button-notifications">
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-danger text-xs rounded-full h-4 w-4 flex items-center justify-center" data-testid="notification-count">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-full md:w-1/3 bg-card-bg border-l border-slate-700">
+              <SheetHeader>
+                <SheetTitle className="text-white">Notifications</SheetTitle>
+              </SheetHeader>
+              <div className="py-4 h-[calc(100%-60px)] overflow-y-auto">
+                <AlertsPanel alerts={notifications || []} />
+              </div>
+            </SheetContent>
+          </Sheet>
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-to-br from-bitcoin to-yellow-500 rounded-full" data-testid="user-avatar"></div>
             <span className="hidden sm:block text-sm font-medium" data-testid="username">{user.username}</span>

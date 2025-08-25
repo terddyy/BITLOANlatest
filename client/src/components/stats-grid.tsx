@@ -37,9 +37,9 @@ export default function StatsGrid({ stats, btcPrice, user }: StatsGridProps) {
     : "Danger";
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
       {/* BTC Price */}
-      <div className="bg-card-bg rounded-xl p-6 border border-slate-700" data-testid="stat-btc-price">
+      {/* <div className="bg-card-bg rounded-xl p-6 border border-slate-700" data-testid="stat-btc-price">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-medium text-slate-400">BTC Price</h3>
           <div className="flex items-center space-x-1">
@@ -58,7 +58,7 @@ export default function StatsGrid({ stats, btcPrice, user }: StatsGridProps) {
             <span className="text-slate-400 text-sm">24h</span>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Total Collateral */}
       <div className="bg-card-bg rounded-xl p-6 border border-slate-700" data-testid="stat-collateral">

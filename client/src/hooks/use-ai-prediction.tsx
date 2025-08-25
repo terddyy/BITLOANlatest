@@ -3,9 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { type PriceData, type Timeframe } from '../components/real-time-price-chart'; // Re-use types
 
 export interface AiPrediction {
-  predictedPrice: string;
-  timeHorizon: number; // In hours, e.g., 24 for 1 day
-  confidence: number; // Percentage
   riskLevel: string; // e.g., "low", "medium", "high"
   modelAccuracy: number; // Percentage
 }
@@ -13,9 +10,10 @@ export interface AiPrediction {
 interface UseAiPredictionProps {
   currentPriceData: PriceData[]; // Historical data to base prediction on
   timeframe: Timeframe; // Current timeframe of the chart
+  onPrediction?: (prediction: AiPrediction) => void; // Callback for new predictions
 }
 
-export const useAiPrediction = ({ currentPriceData, timeframe }: UseAiPredictionProps) => {
+export const useAiPrediction = ({ currentPriceData, timeframe, onPrediction }: UseAiPredictionProps) => {
   const [prediction, setPrediction] = useState<AiPrediction | null>(null);
 
   const calculateTrend = useCallback((prices: number[]): number => {
@@ -89,14 +87,15 @@ export const useAiPrediction = ({ currentPriceData, timeframe }: UseAiPrediction
     }
 
     setPrediction({
-      predictedPrice: predictedPrice.toFixed(2),
-      timeHorizon: timeHorizonHours,
-      confidence: parseFloat(confidence.toFixed(1)),
       riskLevel,
       modelAccuracy: getDynamicModelAccuracy(),
     });
 
-  }, [currentPriceData, timeframe, calculateTrend, calculateVolatility, getDynamicModelAccuracy]);
+    if (onPrediction) {
+      onPrediction({ riskLevel, modelAccuracy: getDynamicModelAccuracy() });
+    }
+
+  }, [currentPriceData, timeframe, calculateTrend, calculateVolatility, getDynamicModelAccuracy, onPrediction]);
 
   return { prediction };
 }; 

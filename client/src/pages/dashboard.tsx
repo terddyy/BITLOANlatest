@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Navigation from "@/components/navigation";
 import AiAlertBanner from "@/components/ai-alert-banner";
 import StatsGrid from "@/components/stats-grid";
@@ -7,8 +7,17 @@ import AlertsPanel from "@/components/alerts-panel";
 import LoanPositionsTable from "@/components/loan-positions-table";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useState, useEffect } from "react";
-import RealTimePriceChart from "@/components/real-time-price-chart";
-import { type LoanPosition, type Alert, type AiPrediction } from "@shared/schema";
+import RealTimePriceChart, { type PriceData, type Timeframe } from "@/components/real-time-price-chart";
+import { type LoanPosition, type AiPrediction, type Notification } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { useAiPrediction } from "@/hooks/use-ai-prediction"; // Import useAiPrediction
+
+interface WebSocketData {
+  btcPrice: { price: number; change: number; changePercent: number };
+  healthFactor: number;
+  loanPositions: LoanPosition[];
+  timestamp: string;
+}
 
 interface DashboardResponse {
   user: {
@@ -38,34 +47,61 @@ interface DashboardResponse {
     updatedAt?: string | null;
     liquidationPrice?: string | null;
   }[];
-  alerts: {
-    id: string;
-    type: string;
-    severity: string;
-    title: string;
-    message: string;
-    isRead: boolean;
-    createdAt: string;
-    metadata?: any | null;
-  }[];
-  prediction: AiPrediction | null;
+  // Removed prediction from here as it's now client-side
 }
 
 export default function Dashboard() {
-  const [realtimeData, setRealtimeData] = useState<any>(null);
-  
+  const [realtimeData, setRealtimeData] = useState<WebSocketData | null>(null);
+  const [currentPriceChartData, setCurrentPriceChartData] = useState<PriceData[]>([]);
+  const [currentTimeframe, setCurrentTimeframe] = useState<Timeframe>("24h");
+
   const { data: dashboardData, isLoading } = useQuery<DashboardResponse>({
     queryKey: ["/api/dashboard"],
   });
 
+  const { data: notifications, isLoading: isLoadingNotifications } = useQuery<Notification[]>({ // Fetch notifications
+    queryKey: ["/api/notifications"],
+  });
+
+  const queryClient = useQueryClient(); // Correctly initialize queryClient
+
+  // Client-side AI Prediction
+  const { prediction } = useAiPrediction({
+    currentPriceData: currentPriceChartData,
+    timeframe: currentTimeframe,
+    onPrediction: async (newPrediction) => {
+      const { riskLevel } = newPrediction;
+      if (riskLevel === "high" || riskLevel === "medium-high") {
+        // Trigger server-side notifications (SMS, email)
+        try {
+          await apiRequest("POST", "/api/notifications/trigger", { riskLevel });
+          console.log("Server-side notifications triggered from client-side prediction.");
+        } catch (error) {
+          console.error("Failed to trigger server-side notifications from client-side prediction:", error);
+        }
+      }
+    },
+  });
+
   // WebSocket connection for real-time updates
-  useWebSocket("/ws", (data) => {
+  useWebSocket("/ws", async (data) => {
     if (data.type === "price_update") {
       setRealtimeData(data.data);
+    } else if (data.type === "new_notification") { // Handle new notification from WebSocket
+      console.log("Received new notification via WebSocket:", data.data);
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }); // Invalidate and refetch notifications
     }
   });
 
-  if (isLoading) {
+  // Effect to update currentPriceChartData and currentTimeframe for useAiPrediction
+  useEffect(() => {
+    if (realtimeData?.btcPrice) {
+      setCurrentPriceChartData(prevData => [...prevData, { time: realtimeData.timestamp, price: realtimeData.btcPrice.price }]);
+    }
+    // In a real app, you'd also get timeframe updates from user interaction or API
+  }, [realtimeData]);
+
+  if (isLoading || isLoadingNotifications) { // Include notification loading state
     return (
       <div className="min-h-screen bg-dark-bg flex items-center justify-center">
         <div className="text-center">
@@ -80,13 +116,14 @@ export default function Dashboard() {
   const safeData: DashboardResponse = dashboardData || {
     user: { username: "Guest", walletAddress: null, linkedWalletBalance: "0.00", autoTopUpEnabled: false, smsAlertsEnabled: false },
     stats: { totalCollateral: 0, totalBorrowed: 0, activeLoanCount: 0, healthFactor: 0, btcPrice: { price: 0, change: 0, changePercent: 0 } },
-    prediction: null,
-    alerts: [],
+    // Removed prediction from here as it's now client-side
     loanPositions: [],
   };
 
   // Use real-time data if available, otherwise fall back to API data
   const currentBtcPrice = realtimeData?.btcPrice || safeData.stats?.btcPrice || { price: 0, change: 0, changePercent: 0 };
+  const currentHealthFactor = realtimeData?.healthFactor ?? safeData.stats?.healthFactor ?? 0;
+  const currentLoanPositions = realtimeData?.loanPositions || safeData.loanPositions || [];
 
   return (
     <div className="min-h-screen bg-dark-bg text-slate-100">
@@ -94,13 +131,13 @@ export default function Dashboard() {
       
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* AI Alert Banner */}
-        {safeData.prediction && (
-          <AiAlertBanner prediction={safeData.prediction} />
+        {prediction && (
+          <AiAlertBanner prediction={prediction} /> // Use client-side prediction
         )}
 
         {/* Stats Grid */}
         <StatsGrid 
-          stats={safeData.stats}
+          stats={{ ...safeData.stats, healthFactor: currentHealthFactor }}
           btcPrice={currentBtcPrice}
           user={safeData.user}
         />
@@ -109,7 +146,10 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
           {/* Real-time Price Chart */}
           <div className="lg:col-span-2">
-            <RealTimePriceChart />
+            <RealTimePriceChart 
+              onPriceDataUpdate={setCurrentPriceChartData}
+              onTimeframeChange={setCurrentTimeframe}
+            />
           </div>
 
           {/* Actions Panel */}
@@ -118,7 +158,7 @@ export default function Dashboard() {
               user={safeData.user}
               stats={safeData.stats}
             />
-            <AlertsPanel alerts={safeData.alerts} />
+            <AlertsPanel alerts={notifications || []} /> {/* Pass fetched notifications */} 
           </div>
         </div>
 

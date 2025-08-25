@@ -3,13 +3,13 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 interface AiAlertBannerProps {
   prediction: {
-    currentPrice: string;
-    predictedPrice: string;
-    timeHorizon: number;
-    confidence: string;
+    // predictedPrice: string;
+    // timeHorizon: number;
+    // confidence: string;
     riskLevel: string;
   };
 }
@@ -17,6 +17,7 @@ interface AiAlertBannerProps {
 export default function AiAlertBanner({ prediction }: AiAlertBannerProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   const autoTopUpMutation = useMutation({
     mutationFn: async () => {
@@ -42,13 +43,13 @@ export default function AiAlertBanner({ prediction }: AiAlertBannerProps) {
     },
   });
 
-  const currentPrice = parseFloat(prediction.currentPrice);
-  const predictedPrice = parseFloat(prediction.predictedPrice);
-  const priceChange = ((predictedPrice - currentPrice) / currentPrice) * 100;
-  const confidence = parseFloat(prediction.confidence);
+  // const currentPrice = parseFloat(prediction.currentPrice);
+  // const predictedPrice = parseFloat(prediction.predictedPrice);
+  // const priceChange = ((predictedPrice - currentPrice) / currentPrice) * 100;
+  // const confidence = parseFloat(prediction.confidence);
 
   // Only show warning if significant drop predicted with high confidence
-  if (priceChange > -5 || confidence < 60) {
+  if (prediction.riskLevel === 'low') {
     return null;
   }
 
@@ -64,7 +65,7 @@ export default function AiAlertBanner({ prediction }: AiAlertBannerProps) {
           <div>
             <h3 className="text-bitcoin font-semibold" data-testid="alert-title">AI Price Alert</h3>
             <p className="text-sm text-slate-300" data-testid="alert-message">
-              BTC showing {confidence.toFixed(0)}% probability of {Math.abs(priceChange).toFixed(1)}% dip in next {prediction.timeHorizon} hours. Consider adding collateral.
+              BTC showing {prediction.riskLevel} risk level. Consider adding collateral.
             </p>
           </div>
         </div>
@@ -81,6 +82,7 @@ export default function AiAlertBanner({ prediction }: AiAlertBannerProps) {
             variant="outline"
             className="border-bitcoin text-bitcoin hover:bg-bitcoin/10 px-4 py-2 rounded-lg font-medium text-sm transition-colors"
             data-testid="button-view-details"
+            onClick={() => navigate('/ai-protection')}
           >
             View Details
           </Button>

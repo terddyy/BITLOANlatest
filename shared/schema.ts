@@ -42,17 +42,15 @@ export const aiPredictions = pgTable("ai_predictions", {
   priceData: jsonb("price_data"), // historical price array for chart
 });
 
-export const alerts = pgTable("alerts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  type: text("type").notNull(), // price_drop, liquidation_risk, auto_topup, model_update
-  severity: text("severity").notNull(), // info, warning, danger
-  title: text("title").notNull(),
-  message: text("message").notNull(),
-  isRead: boolean("is_read").default(false),
-  metadata: jsonb("metadata"), // additional alert data
-  createdAt: timestamp("created_at").defaultNow(),
-});
+// New Notification Type for MongoDB
+export interface Notification {
+  id: string;
+  userId: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string; // Date will be stringified
+}
 
 export const topUpTransactions = pgTable("top_up_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -78,7 +76,6 @@ export const priceHistory = pgTable("price_history", {
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertLoanPositionSchema = createInsertSchema(loanPositions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAiPredictionSchema = createInsertSchema(aiPredictions).omit({ id: true, timestamp: true });
-export const insertAlertSchema = createInsertSchema(alerts).omit({ id: true, createdAt: true });
 export const insertTopUpTransactionSchema = createInsertSchema(topUpTransactions).omit({ id: true, createdAt: true });
 export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({ id: true, timestamp: true });
 
@@ -89,9 +86,6 @@ export type LoanPosition = typeof loanPositions.$inferSelect;
 export type InsertLoanPosition = z.infer<typeof insertLoanPositionSchema>;
 export type AiPrediction = typeof aiPredictions.$inferSelect;
 export type InsertAiPrediction = z.infer<typeof insertAiPredictionSchema>;
-export type Alert = typeof alerts.$inferSelect;
-export type InsertAlert = z.infer<typeof insertAlertSchema>;
 export type TopUpTransaction = typeof topUpTransactions.$inferSelect;
 export type InsertTopUpTransaction = z.infer<typeof insertTopUpTransactionSchema>;
 export type PriceHistory = typeof priceHistory.$inferSelect;
-export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;

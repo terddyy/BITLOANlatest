@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -15,7 +15,7 @@ import {
 import 'chartjs-adapter-date-fns';
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Loader2, Info } from "lucide-react";
 // import { type AiPrediction } from "@shared/schema"; // Server-side prediction schema
 import { useAiPrediction, type AiPrediction } from '../hooks/use-ai-prediction'; // Client-side prediction hook and type
 
@@ -37,11 +37,19 @@ export interface PriceData {
 
 export type Timeframe = '6h' | '24h' | '7d' | '1m';
 
+interface TickerData {
+  priceChange: string;
+  priceChangePercent: string;
+  lastPrice: string;
+}
+
 interface RealTimePriceChartProps {
-  // prediction?: AiPrediction | null; // This prop is no longer needed as prediction is internal
+  onPriceDataUpdate: (data: PriceData[]) => void; // Callback to update parent with price data
+  onTimeframeChange: (timeframe: Timeframe) => void; // Callback to update parent with timeframe
 }
 
 const BINANCE_KLINE_API_BASE_URL = "https://api.binance.com/api/v3/klines";
+const BINANCE_24HR_TICKER_API_URL = "https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT";
 
 const getBinanceKlineParams = (timeframe: Timeframe) => {
   switch (timeframe) {
@@ -58,7 +66,7 @@ const getBinanceKlineParams = (timeframe: Timeframe) => {
   }
 };
 
-const RealTimePriceChart: React.FC<RealTimePriceChartProps> = () => {
+const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpdate, onTimeframeChange }) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('1m'); // Default to 1 month
   const chartRef = useRef<ChartJS<"line", number[], string>>(null);
 
@@ -91,26 +99,68 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = () => {
     }
   );
 
+  // Effect to call onPriceDataUpdate when historicalData changes
+  useEffect(() => {
+    if (historicalData) {
+      onPriceDataUpdate(historicalData);
+    }
+  }, [historicalData, onPriceDataUpdate]);
+
+  // Effect to call onTimeframeChange when selectedTimeframe changes
+  useEffect(() => {
+    onTimeframeChange(selectedTimeframe);
+  }, [selectedTimeframe, onTimeframeChange]);
+
+  const { data: ticker24hData, isLoading: isLoading24hTicker } = useQuery<TickerData>({
+    queryKey: ['binance-24h-ticker'],
+    queryFn: async () => {
+      const response = await fetch(BINANCE_24HR_TICKER_API_URL);
+      if (!response.ok) {
+        throw new Error(`Binance 24h Ticker API error: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    staleTime: 5000,
+    refetchInterval: 5000,
+  });
+
+  // const { data: kline1hData, isLoading: isLoading1hKline } = useQuery<PriceData[]>({
+  //   queryKey: ['binance-1h-kline'],
+  //   queryFn: async () => {
+  //     const response = await fetch(`${BINANCE_KLINE_API_BASE_URL}?symbol=BTCUSDT&interval=1h&limit=2`);
+  //     if (!response.ok) {
+  //       throw new Error(`Binance 1h Kline API error: ${response.statusText}`);
+  //     }
+  //     const result = await response.json();
+  //     return result.map((kline: any[]) => ({
+  //       time: new Date(kline[0]).toISOString(),
+  //       price: parseFloat(kline[4]),
+  //     }));
+  //   },
+  //   staleTime: 5000,
+  //   refetchInterval: 5000,
+  // });
+
   const priceData = historicalData || [];
   const latestPrice = priceData.length > 0 ? priceData[priceData.length - 1].price : 0;
 
   const { prediction } = useAiPrediction({ currentPriceData: priceData, timeframe: selectedTimeframe });
 
   // Prepare prediction data for charting
-  const predictionPriceData: PriceData[] = [];
-  if (prediction && prediction.predictedPrice && latestPrice) {
-    // The prediction is for 24 hours from the latest historical data point
-    const lastHistoricalPoint = priceData.length > 0 ? priceData[priceData.length - 1] : undefined;
-    if (lastHistoricalPoint) {
-      const lastHistoricalTime = new Date(lastHistoricalPoint.time);
-      const predictedTime = new Date(lastHistoricalTime.getTime() + (prediction.timeHorizon * 60 * 60 * 1000)); // prediction.timeHorizon is in hours
+  // const predictionPriceData: PriceData[] = [];
+  // if (prediction && prediction.predictedPrice && latestPrice) {
+  //   // The prediction is for 24 hours from the latest historical data point
+  //   const lastHistoricalPoint = priceData.length > 0 ? priceData[priceData.length - 1] : undefined;
+  //   if (lastHistoricalPoint) {
+  //     const lastHistoricalTime = new Date(lastHistoricalPoint.time);
+  //     const predictedTime = new Date(lastHistoricalTime.getTime() + (prediction.timeHorizon * 60 * 60 * 1000)); // prediction.timeHorizon is in hours
 
-      predictionPriceData.push(
-        { time: lastHistoricalTime.toISOString(), price: lastHistoricalPoint.price }, // Start prediction from last actual price
-        { time: predictedTime.toISOString(), price: parseFloat(prediction.predictedPrice) }
-      );
-    }
-  }
+  //     predictionPriceData.push(
+  //       { time: lastHistoricalTime.toISOString(), price: lastHistoricalPoint.price }, // Start prediction from last actual price
+  //       { time: predictedTime.toISOString(), price: parseFloat(prediction.predictedPrice) }
+  //     );
+  //   }
+  // }
 
   const chartData = {
     labels: priceData.map((dataPoint) => dataPoint.time),
@@ -123,17 +173,17 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = () => {
         tension: 0.1,
       },
       // Prediction Line
-      ...(predictionPriceData.length > 0 ? [
-        {
-          label: 'Predicted Price',
-          data: predictionPriceData.map((dataPoint) => dataPoint.price),
-          fill: false,
-          borderColor: '#1E90FF', // Dodger Blue for prediction
-          borderDash: [5, 5],
-          tension: 0.1,
-          pointRadius: 0,
-        },
-      ] : []),
+      // ...(predictionPriceData.length > 0 ? [
+      //   {
+      //     label: 'Predicted Price',
+      //     data: predictionPriceData.map((dataPoint) => dataPoint.price),
+      //     fill: false,
+      //     borderColor: '#1E90FF', // Dodger Blue for prediction
+      //     borderDash: [5, 5],
+      //     tension: 0.1,
+      //     pointRadius: 0,
+      //   },
+      // ] : []),
     ],
   };
 
@@ -262,25 +312,28 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = () => {
           </Button>
         </div>
       </div>
-      <div className="text-3xl font-bold text-white mb-4">
+      <div className="text-3xl font-bold text-white mb-4 flex items-baseline space-x-2">
         {isLoading || isFetching ? (
           <Loader2 className="h-8 w-8 animate-spin text-bitcoin" />
         ) : (
           `$${latestPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         )}
+        {ticker24hData && (
+          <div className="flex items-center space-x-1">
+            <span className={`text-base font-semibold ${parseFloat(ticker24hData.priceChangePercent) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {parseFloat(ticker24hData.priceChangePercent) >= 0 ? '' : '▾'} {parseFloat(ticker24hData.priceChangePercent).toFixed(1)}% (24h)
+            </span>
+            <Info className="w-4 h-4 text-slate-400 cursor-pointer" />
+          </div>
+        )}
+        {/* {kline1hData && kline1hData.length === 2 && (
+          <span className={`text-base font-semibold ${kline1hData[1].price - kline1hData[0].price >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+            {kline1hData[1].price - kline1hData[0].price >= 0 ? '+' : ''}{(kline1hData[1].price - kline1hData[0].price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (1H)
+          </span>
+        )} */}
       </div>
-      {prediction && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-          <div className="bg-slate-800 rounded-lg p-3 text-center">
-            <div className="text-sm text-slate-400">Next 1 Day Prediction</div>
-            <div className="text-lg font-semibold text-white">
-              ${parseFloat(prediction.predictedPrice).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            </div>
-          </div>
-          <div className="bg-slate-800 rounded-lg p-3 text-center">
-            <div className="text-sm text-slate-400">Confidence Level</div>
-            <div className="text-lg font-semibold text-bitcoin">{prediction.confidence.toFixed(0)}%</div>
-          </div>
+      {prediction && prediction.riskLevel && (
+        <div className="grid grid-cols-1 gap-4 mb-4">
           <div className="bg-slate-800 rounded-lg p-3 text-center">
             <div className="text-sm text-slate-400">Risk Level</div>
             <div className={`text-lg font-semibold capitalize ${

@@ -1,10 +1,24 @@
+import "dotenv/config"; // Load environment variables
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import mongoose from "mongoose";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+const MONGODB_URI = process.env.MONGODB_URI; // Use environment variable for MongoDB URI
+
+// Connect to MongoDB Atlas
+// Only attempt to connect if MONGODB_URI is defined
+if (MONGODB_URI) {
+  mongoose.connect(MONGODB_URI)
+    .then(() => console.log("Connected to MongoDB Atlas"))
+    .catch((err) => console.error("MongoDB Atlas connection error:", err));
+} else {
+  console.warn("MONGODB_URI not provided. MongoDB connection skipped.");
+}
 
 app.use((req, res, next) => {
   const start = Date.now();

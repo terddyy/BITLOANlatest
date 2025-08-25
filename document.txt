@@ -1,0 +1,97 @@
+BitLoan – AI-Powered BTC Collateral Protection
+
+Problem
+BTC-backed loans are risky:
+
+
+Sudden price crashes trigger instant liquidations
+
+
+Users lose BTC at the worst time
+
+
+Result: panic, churn, and distrust in DeFi lending
+
+
+
+MVP Solution
+AI-Powered Price Drop Protection
+AI Forecast (off-chain, lightweight)
+
+
+Uses Prophet to detect sudden BTC dips
+
+
+Data sources: Chainlink, Binance API
+
+
+User Alerts
+
+
+In-app + SMS + wallet notifications
+
+
+Instant Top-Up
+
+
+Pre-approved linked wallet adds collateral automatically
+
+
+Or manual 1-tap confirmation
+
+
+✅ Prevents liquidation, protects BTC holdings
+ ✅ Deployable in weeks, low cost
+
+User Story (Simple Scenario)
+Without Top-Up:
+BTC $30k → 0.5 BTC = $15k
+
+
+Drops 20% → $12k → collateral ratio = 120% → liquidated → user loses BTC
+
+
+With Top-Up:
+AI predicts dip → warns user
+
+
+Auto-adds $3k USDT from linked wallet → ratio back to 150%
+
+
+BTC rebounds → user survives, keeps BTC
+
+
+
+MVP Trade-Offs
+Pros: fast to build, low-cost, user protection
+
+
+Cons: not 100% accurate, off-chain adds centralization
+
+
+Upgrade path: add on-chain flows, sentiment data, advanced ML
+
+
+
+Target Users
+Retail traders who want to survive volatility
+
+
+Emerging market users (PH farmer, freelancer) who use BTC as working capital
+
+
+Active DeFi borrowers on ICP
+
+
+
+
+Impact
+Reduces panic liquidations
+
+
+Retains more users on BitLoan
+
+
+Makes ICP a safer hub for BTC DeFi
+
+
