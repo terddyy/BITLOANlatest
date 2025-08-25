@@ -3,6 +3,16 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import mongoose from "mongoose";
+import { v4 as uuidv4 } from 'uuid'; // Import uuid
+
+declare global {
+  namespace Express {
+    interface Request {
+      id: string; // Add request ID
+      timestamp: string; // Add request timestamp
+    }
+  }
+}
 
 const app = express();
 app.use(express.json());
@@ -20,6 +30,13 @@ if (MONGODB_URI) {
   console.warn("MONGODB_URI not provided. MongoDB connection skipped.");
 }
 
+// Add request ID and timestamp middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  req.id = uuidv4();
+  req.timestamp = new Date().toISOString();
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -34,7 +51,7 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      let logLine = `[ReqID: ${req.id}] ${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }

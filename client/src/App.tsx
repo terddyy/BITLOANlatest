@@ -7,6 +7,8 @@ import Dashboard from "@/pages/dashboard";
 import Loans from "@/pages/loans";
 import AiProtection from "@/pages/ai-protection";
 import Analytics from "@/pages/analytics";
+import NewLoanPage from "@/pages/new-loan"; // Import the new page
+import LoanDetailsPage from "@/pages/loan-details"; // Import the new page
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -14,6 +16,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/loans" component={Loans} />
+      <Route path="/loans/new" component={NewLoanPage} /> {/* New loan route */}
+      <Route path="/loans/:id" component={LoanDetailsPage} /> {/* Loan details route */}
       <Route path="/ai-protection" component={AiProtection} />
       <Route path="/analytics" component={Analytics} />
       <Route component={NotFound} />

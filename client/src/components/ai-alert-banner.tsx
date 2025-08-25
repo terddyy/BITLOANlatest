@@ -24,13 +24,13 @@ export default function AiAlertBanner({ prediction }: AiAlertBannerProps) {
       return apiRequest("POST", "/api/topup", {
         loanPositionId: "btc-001", // Demo position
         amount: 1500,
-        currency: "USDT",
+        currency: "BTC",
       });
     },
     onSuccess: () => {
       toast({
         title: "Auto Top-Up Initiated",
-        description: "Adding 1,500 USDT collateral to protect your position.",
+        description: "Adding 1,500 BTC collateral to protect your position.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
     },

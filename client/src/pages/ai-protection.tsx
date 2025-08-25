@@ -228,9 +228,7 @@ export default function AiProtection() {
                     <p className="font-medium text-white">Auto Top-Up Executed</p>
                     <span className="text-xs text-slate-400">18 minutes ago</span>
                   </div>
-                  <p className="text-sm text-slate-400 mt-1">
-                    Added 1,500 USDT to BTC-001. Health factor improved from 1.28 to 1.45.
-                  </p>
+                  <p className="text-sm text-slate-400">Added 1,500 BTC to BTC-001. Health factor improved from 1.28 to 1.45.</p>
                 </div>
               </div>
 

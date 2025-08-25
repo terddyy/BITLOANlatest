@@ -3,12 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter"; // Import useLocation
 
 interface LoanPosition {
   id: string;
   positionName: string;
   collateralBtc: string;
-  collateralUsdt: string;
   borrowedAmount: string;
   apr: string;
   healthFactor: string;
@@ -18,27 +18,26 @@ interface LoanPosition {
 
 interface LoanPositionsTableProps {
   positions: LoanPosition[];
-  btcPrice: {
-    price: number;
-  };
+  btcPrice: { price: number; change: number; changePercent: number };
 }
 
 export default function LoanPositionsTable({ positions, btcPrice }: LoanPositionsTableProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation(); // Initialize navigate
 
   const topUpMutation = useMutation({
     mutationFn: async (positionId: string) => {
       return apiRequest("POST", "/api/topup", {
         loanPositionId: positionId,
         amount: 1000,
-        currency: "USDT",
+        currency: "BTC",
       });
     },
     onSuccess: () => {
       toast({
         title: "Top-Up Successful",
-        description: "Added 1,000 USDT collateral to position.",
+        description: "Added 1,000 BTC collateral to position.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
     },
@@ -82,7 +81,11 @@ export default function LoanPositionsTable({ positions, btcPrice }: LoanPosition
       <div className="p-6 border-b border-slate-700">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white" data-testid="table-title">Active Loan Positions</h3>
-          <Button className="text-sm bg-bitcoin hover:bg-yellow-500 text-dark-bg px-4 py-2 rounded-lg font-medium transition-colors" data-testid="button-new-loan">
+          <Button 
+            onClick={() => navigate("/loans/new")}
+            className="text-sm bg-bitcoin hover:bg-yellow-500 text-dark-bg px-4 py-2 rounded-lg font-medium transition-colors"
+            data-testid="button-new-loan"
+          >
             New Loan
           </Button>
         </div>
@@ -106,8 +109,7 @@ export default function LoanPositionsTable({ positions, btcPrice }: LoanPosition
               const healthFactor = parseFloat(position.healthFactor);
               const healthStatus = getHealthFactorStatus(healthFactor);
               const collateralBtcValue = parseFloat(position.collateralBtc) * btcPrice.price;
-              const collateralUsdtValue = parseFloat(position.collateralUsdt);
-              const totalCollateralValue = collateralBtcValue + collateralUsdtValue;
+              const totalCollateralValue = collateralBtcValue;
 
               return (
                 <tr key={position.id} className="hover:bg-slate-800/50 transition-colors" data-testid={`position-row-${position.id}`}>
@@ -125,9 +127,6 @@ export default function LoanPositionsTable({ positions, btcPrice }: LoanPosition
                     <div>
                       <div className="text-white" data-testid={`collateral-btc-${position.id}`}>
                         {position.collateralBtc} BTC
-                        {parseFloat(position.collateralUsdt) > 0 && (
-                          <span className="text-slate-400"> + {position.collateralUsdt} USDT</span>
-                        )}
                       </div>
                       <div className="text-sm text-slate-400" data-testid={`collateral-value-${position.id}`}>
                         ${totalCollateralValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -139,7 +138,7 @@ export default function LoanPositionsTable({ positions, btcPrice }: LoanPosition
                       <div className="text-white" data-testid={`borrowed-amount-${position.id}`}>
                         ${parseFloat(position.borrowedAmount).toLocaleString()}
                       </div>
-                      <div className="text-sm text-slate-400">USDT</div>
+                      <div className="text-sm text-slate-400">BTC</div>
                     </div>
                   </td>
                   <td className="py-4 px-6">
@@ -181,6 +180,7 @@ export default function LoanPositionsTable({ positions, btcPrice }: LoanPosition
                         size="sm"
                         className="text-sm text-slate-400 hover:text-white px-3 py-1 rounded transition-colors"
                         data-testid={`button-details-${position.id}`}
+                        onClick={() => navigate(`/loans/${position.id}`)} // Navigate to details page
                       >
                         Details
                       </Button>

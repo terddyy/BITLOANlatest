@@ -6,24 +6,32 @@ import ProtectionPanel from "@/components/protection-panel";
 import AlertsPanel from "@/components/alerts-panel";
 import LoanPositionsTable from "@/components/loan-positions-table";
 import { useWebSocket } from "@/hooks/use-websocket";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react"; // Add useCallback
 import RealTimePriceChart, { type PriceData, type Timeframe } from "@/components/real-time-price-chart";
 import { type LoanPosition, type AiPrediction, type Notification } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
-import { useAiPrediction } from "@/hooks/use-ai-prediction"; // Import useAiPrediction
+import { useAiPrediction } from "@/hooks/use-ai-prediction";
+import { throttle, debounce } from 'lodash'; // Import debounce
 
 interface WebSocketData {
+  type: 'price_update'; // Add type discriminator
   btcPrice: { price: number; change: number; changePercent: number };
   healthFactor: number;
   loanPositions: LoanPosition[];
   timestamp: string;
 }
 
+interface NewNotificationMessage {
+  type: 'new_notification';
+  data: Notification;
+}
+
 interface DashboardResponse {
   user: {
     username: string;
     walletAddress?: string | null;
-    linkedWalletBalance: string;
+    linkedWalletBalanceBtc: string; // Updated from linkedWalletBalance
+    linkedWalletBalanceUsdt: string; // New USDT balance field
     autoTopUpEnabled: boolean;
     smsAlertsEnabled: boolean;
   };
@@ -38,7 +46,6 @@ interface DashboardResponse {
     id: string;
     positionName: string;
     collateralBtc: string;
-    collateralUsdt: string;
     borrowedAmount: string;
     apr: string;
     healthFactor: string;
@@ -49,6 +56,8 @@ interface DashboardResponse {
   }[];
   // Removed prediction from here as it's now client-side
 }
+
+// Removed global throttledTriggerNotification definition
 
 export default function Dashboard() {
   const [realtimeData, setRealtimeData] = useState<WebSocketData | null>(null);
@@ -65,40 +74,63 @@ export default function Dashboard() {
 
   const queryClient = useQueryClient(); // Correctly initialize queryClient
 
+  // Using useRef to create a persistent throttled function
+  const throttledTriggerNotification = useRef(
+    throttle(
+      async (riskLevel: string) => {
+        try {
+          await apiRequest("POST", "/api/notifications/trigger", { riskLevel });
+          console.log(`Server-side notifications triggered from client-side prediction (throttled for ${riskLevel}).`);
+        } catch (error) {
+          console.error("Failed to trigger server-side notifications from client-side prediction:", error);
+        }
+      },
+      1800000, // 30 minutes in milliseconds
+      { leading: true, trailing: false }
+    )
+  ).current;
+
   // Client-side AI Prediction
   const { prediction } = useAiPrediction({
     currentPriceData: currentPriceChartData,
     timeframe: currentTimeframe,
-    onPrediction: async (newPrediction) => {
-      const { riskLevel } = newPrediction;
-      if (riskLevel === "high" || riskLevel === "medium-high") {
-        // Trigger server-side notifications (SMS, email)
-        try {
-          await apiRequest("POST", "/api/notifications/trigger", { riskLevel });
-          console.log("Server-side notifications triggered from client-side prediction.");
-        } catch (error) {
-          console.error("Failed to trigger server-side notifications from client-side prediction:", error);
+    onPrediction: useCallback(
+      debounce(async (newPrediction) => {
+        const { riskLevel } = newPrediction;
+        if (riskLevel === "high" || riskLevel === "medium-high") {
+          throttledTriggerNotification(riskLevel); // Call the persistent throttled function
         }
-      }
-    },
+      }, 5000), // Debounce onPrediction for 5 seconds
+      [throttledTriggerNotification] // Add throttledTriggerNotification to dependencies
+    ),
   });
 
-  // WebSocket connection for real-time updates
-  useWebSocket("/ws", async (data) => {
-    if (data.type === "price_update") {
-      setRealtimeData(data.data);
-    } else if (data.type === "new_notification") { // Handle new notification from WebSocket
-      console.log("Received new notification via WebSocket:", data.data);
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }); // Invalidate and refetch notifications
-    }
-  });
+  // Debounced handler for price data updates from RealTimePriceChart
+  const debouncedSetCurrentPriceChartData = useCallback(
+    debounce((data: PriceData[]) => {
+      setCurrentPriceChartData(data);
+    }, 500), // Debounce for 500ms
+    []
+  );
+
+  // WebSocket connection for real-time updates - TEMPORARILY COMMENTED OUT
+  // useWebSocket({
+  //   path: "/ws",
+  //   onMessage: async (data: WebSocketData | NewNotificationMessage) => {
+  //     if (data.type === "price_update") {
+  //       setRealtimeData(data); // Pass data directly, as it's already WebSocketData type
+  //     } else if (data.type === "new_notification") { // Handle new notification from WebSocket
+  //       console.log("Received new notification via WebSocket:", data.data);
+  //       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }); // Invalidate and refetch notifications
+  //     }
+  //   },
+  // });
 
   // Effect to update currentPriceChartData and currentTimeframe for useAiPrediction
+  // Removed direct update to currentPriceChartData here, relying on RealTimePriceChart's onPriceDataUpdate
   useEffect(() => {
-    if (realtimeData?.btcPrice) {
-      setCurrentPriceChartData(prevData => [...prevData, { time: realtimeData.timestamp, price: realtimeData.btcPrice.price }]);
-    }
-    // In a real app, you'd also get timeframe updates from user interaction or API
+    // This useEffect is now primarily for potential future real-time updates to timeframe
+    // or other effects dependent on realtimeData that don't involve price history accumulation.
   }, [realtimeData]);
 
   if (isLoading || isLoadingNotifications) { // Include notification loading state
@@ -114,7 +146,7 @@ export default function Dashboard() {
 
   // Create safe data with fallbacks
   const safeData: DashboardResponse = dashboardData || {
-    user: { username: "Guest", walletAddress: null, linkedWalletBalance: "0.00", autoTopUpEnabled: false, smsAlertsEnabled: false },
+    user: { username: "Guest", walletAddress: null, linkedWalletBalanceBtc: "0.00", linkedWalletBalanceUsdt: "0.00", autoTopUpEnabled: false, smsAlertsEnabled: false },
     stats: { totalCollateral: 0, totalBorrowed: 0, activeLoanCount: 0, healthFactor: 0, btcPrice: { price: 0, change: 0, changePercent: 0 } },
     // Removed prediction from here as it's now client-side
     loanPositions: [],
@@ -124,6 +156,9 @@ export default function Dashboard() {
   const currentBtcPrice = realtimeData?.btcPrice || safeData.stats?.btcPrice || { price: 0, change: 0, changePercent: 0 };
   const currentHealthFactor = realtimeData?.healthFactor ?? safeData.stats?.healthFactor ?? 0;
   const currentLoanPositions = realtimeData?.loanPositions || safeData.loanPositions || [];
+
+  // Determine the loanPositionId to pass to ProtectionPanel
+  const loanPositionIdForTopUp = currentLoanPositions.length > 0 ? currentLoanPositions[0].id : "";
 
   return (
     <div className="min-h-screen bg-dark-bg text-slate-100">
@@ -139,7 +174,6 @@ export default function Dashboard() {
         <StatsGrid 
           stats={{ ...safeData.stats, healthFactor: currentHealthFactor }}
           btcPrice={currentBtcPrice}
-          user={safeData.user}
         />
 
         {/* Main Dashboard Grid */}
@@ -147,7 +181,7 @@ export default function Dashboard() {
           {/* Real-time Price Chart */}
           <div className="lg:col-span-2">
             <RealTimePriceChart 
-              onPriceDataUpdate={setCurrentPriceChartData}
+              onPriceDataUpdate={debouncedSetCurrentPriceChartData}
               onTimeframeChange={setCurrentTimeframe}
             />
           </div>
@@ -157,6 +191,7 @@ export default function Dashboard() {
             <ProtectionPanel 
               user={safeData.user}
               stats={safeData.stats}
+              loanPositionId={loanPositionIdForTopUp} // Pass the dynamically determined loanPositionId
             />
             <AlertsPanel alerts={notifications || []} /> {/* Pass fetched notifications */} 
           </div>

@@ -1,0 +1,21 @@
+{
+  "canisters": {
+    "bitloan_frontend": {
+      "frontend": {
+        "entrypoint": "client/index.html"
+      },
+      "type": "assets",
+      "source": [
+        "client/dist"
+      ]
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+} 

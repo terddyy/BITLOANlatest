@@ -17,12 +17,10 @@ interface StatsGridProps {
     change: number;
     changePercent: number;
   };
-  user: {
-    linkedWalletBalance: string;
-  };
+  // Removed user prop as it's not used directly by StatsGrid
 }
 
-export default function StatsGrid({ stats, btcPrice, user }: StatsGridProps) {
+export default function StatsGrid({ stats, btcPrice }: StatsGridProps) {
   const healthFactor = stats.healthFactor || 0;
   const healthFactorColor = healthFactor >= 1.5 
     ? "text-success" 

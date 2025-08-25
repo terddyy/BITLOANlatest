@@ -162,7 +162,7 @@ export default function Loans() {
                   <div className="w-2 h-2 bg-success rounded-full"></div>
                   <div>
                     <p className="text-white font-medium">Auto Top-Up Executed</p>
-                    <p className="text-sm text-slate-400">Added 1,500 USDT to BTC-001</p>
+                    <p className="text-sm text-slate-400">Added 1,500 BTC to BTC-001</p>
                   </div>
                 </div>
                 <span className="text-sm text-slate-400">18 min ago</span>

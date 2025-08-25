@@ -126,25 +126,11 @@ export default function Analytics() {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between" data-testid="allocation-btc">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-4 h-4 bg-bitcoin rounded-full"></div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-bitcoin rounded-full"></div>
                     <span className="text-white">Bitcoin (BTC)</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-white font-medium">0.77 BTC</p>
-                    <p className="text-sm text-slate-400">$24,058 (68.4%)</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between" data-testid="allocation-usdt">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-4 h-4 bg-success rounded-full"></div>
-                    <span className="text-white">Tether (USDT)</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-white font-medium">3,200 USDT</p>
-                    <p className="text-sm text-slate-400">$3,200 (9.1%)</p>
-                  </div>
+                  <p className="text-white font-medium">3,200 BTC</p>
                 </div>
 
                 <div className="flex items-center justify-between" data-testid="allocation-available">

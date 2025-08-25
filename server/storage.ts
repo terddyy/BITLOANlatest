@@ -1,41 +1,54 @@
-import { 
-  type User, 
+import {
+  type User as UserSchemaType, // Renamed to avoid conflict with Mongoose model
   type InsertUser,
   type LoanPosition,
-  type InsertLoanPosition,
   type AiPrediction,
   type InsertAiPrediction,
-  type Alert,
-  type InsertAlert,
   type TopUpTransaction,
   type InsertTopUpTransaction,
   type PriceHistory,
-  type InsertPriceHistory
+  type CreateLoanRequest
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import LoanPositionModel from './models/LoanPosition'; // Import Mongoose model
+import Notification from "./models/Notification"; // Ensure Notification model is imported if needed for other methods
+import User from './models/User'; // Import the new User model
+import mongoose from 'mongoose'; // Import mongoose to use mongoose.Types.ObjectId
+
+// Define an interface for the raw document returned by .lean() to explicitly include _id
+interface RawLoanPositionDocument {
+  _id: mongoose.Types.ObjectId;
+  userId: string;
+  positionName: string;
+  collateralBtc: string;
+  collateralUsdt: string; // Add collateralUsdt to the raw document interface
+  borrowedAmount: string;
+  apr: string;
+  healthFactor: string;
+  isProtected: boolean;
+  liquidationPrice?: string | null;
+  createdAt: Date; // Mongoose returns Date objects, even with .lean()
+  updatedAt: Date; // Mongoose returns Date objects, even with .lean()
+}
 
 export interface IStorage {
   // User methods
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  getUser(id: string): Promise<UserSchemaType | undefined>;
+  getUserByUsername(username: string): Promise<UserSchemaType | undefined>;
+  createUser(user: InsertUser): Promise<UserSchemaType>;
+  updateUser(id: string, updates: Partial<UserSchemaType>): Promise<UserSchemaType | undefined>;
 
-  // Loan position methods
+  // Loan position methods (now MongoDB-backed)
   getLoanPositions(userId: string): Promise<LoanPosition[]>;
   getLoanPosition(id: string): Promise<LoanPosition | undefined>;
-  createLoanPosition(position: InsertLoanPosition): Promise<LoanPosition>;
+  createLoanPosition(loanRequest: CreateLoanRequest): Promise<LoanPosition>;
   updateLoanPosition(id: string, updates: Partial<LoanPosition>): Promise<LoanPosition | undefined>;
+  deleteLoanPosition(id: string): Promise<void>;
 
   // AI prediction methods
   getLatestPrediction(): Promise<AiPrediction | undefined>;
   createPrediction(prediction: InsertAiPrediction): Promise<AiPrediction>;
   getPredictionHistory(limit?: number): Promise<AiPrediction[]>;
-
-  // Alert methods
-  getAlerts(userId: string, limit?: number): Promise<Alert[]>;
-  createAlert(alert: InsertAlert): Promise<Alert>;
-  markAlertAsRead(id: string): Promise<void>;
 
   // Top-up transaction methods
   getTopUpTransactions(userId: string, limit?: number): Promise<TopUpTransaction[]>;
@@ -43,139 +56,196 @@ export interface IStorage {
 
   // Price history methods
   getLatestPrice(symbol: string): Promise<PriceHistory | undefined>;
-  createPriceHistory(price: InsertPriceHistory): Promise<PriceHistory>;
+  createPriceHistory(price: PriceHistory): Promise<PriceHistory>;
   getPriceHistory(symbol: string, limit?: number): Promise<PriceHistory[]>;
   getPastPrice(symbol: string, timeAgoMs: number): Promise<PriceHistory | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User> = new Map();
-  private loanPositions: Map<string, LoanPosition> = new Map();
-  private aiPredictions: AiPrediction[] = [];
-  private alerts: Map<string, Alert> = new Map();
-  private topUpTransactions: Map<string, TopUpTransaction> = new Map();
-  private priceHistory: Map<string, PriceHistory> = new Map();
+export class MongoStorage implements IStorage {
+  // private users: Map<string, User> = new Map(); // Users now stored in MongoDB
+  private aiPredictions: AiPrediction[] = []; // AI predictions still in memory for simplicity for now
+  private topUpTransactions: Map<string, TopUpTransaction> = new Map(); // Top-up transactions still in memory for simplicity for now
+  private priceHistory: Map<string, PriceHistory> = new Map(); // Price history still in memory for simplicity for now
 
   constructor() {
-    this.initializeMockData();
+    this.initializeMockUsersAndLoans(); // Initialize mock users and loans
   }
 
-  private initializeMockData() {
-    // Create a demo user
-    const demoUser: User = {
-      id: "demo-user-id",
-      username: "trader.eth",
-      password: "password",
-      walletAddress: "0x1234...5678",
-      linkedWalletBalance: "8450.00",
-      smsNumber: "+1234567890",
-      autoTopUpEnabled: true,
-      smsAlertsEnabled: true,
+  private async initializeMockUsersAndLoans() {
+    // Check if demo user already exists in MongoDB
+    let demoUser = await User.findOne({ username: "trader.eth" }).lean().exec() as (UserSchemaType & { _id: mongoose.Types.ObjectId }) | null;
+
+    if (!demoUser) {
+      // Create demo user if not found
+      const newDemoUser = new User({
+        username: "trader.eth",
+        password: "password", // In a real app, hash this password
+        walletAddress: "0x1234...5678",
+        linkedWalletBalanceBtc: "0.5", // Example BTC balance
+        linkedWalletBalanceUsdt: "8450.00", // Example USDT balance
+        smsNumber: "+1234567890",
+        autoTopUpEnabled: true,
+        smsAlertsEnabled: true,
+      });
+      const savedUser = await newDemoUser.save();
+      demoUser = { ...savedUser.toJSON(), id: savedUser._id.toString() } as UserSchemaType & { _id: mongoose.Types.ObjectId }; // Map to User type
+      console.log("Initialized mock user in MongoDB.");
+    } else {
+      console.log("Demo user already exists in MongoDB.");
+    }
+
+    // Add initial mock loan data to MongoDB if not already present
+    const existingLoans = await LoanPositionModel.countDocuments({ userId: demoUser.id });
+    if (existingLoans === 0) {
+      // const positions: CreateLoanRequest[] = [
+      //   {
+      //     positionName: "BTC-001",
+      //     collateralBtc: 0.45,
+      //     borrowedAmount: 8500.00,
+      //     collateralUsdt: 0, // Initialize with 0 USDT
+      //   },
+      //   {
+      //     positionName: "BTC-002",
+      //     collateralBtc: 0.32,
+      //     borrowedAmount: 5500.00,
+      //     collateralUsdt: 0, // Initialize with 0 USDT
+      //   },
+      // ];
+
+      // for (const loanRequest of positions) {
+      //   await this.createLoanPosition(loanRequest);
+      // }
+      console.log("Skipped initializing mock loan positions as they should be managed by the user.");
+    }
+  }
+
+  // User methods (now MongoDB-backed)
+  async getUser(id: string): Promise<UserSchemaType | undefined> {
+    const user = (await User.findById(id).lean().exec()) as (UserSchemaType & { _id: mongoose.Types.ObjectId }) | null;
+    if (!user) return undefined;
+    return { ...user, id: user._id.toString() };
+  }
+
+  async getUserByUsername(username: string): Promise<UserSchemaType | undefined> {
+    const user = (await User.findOne({ username }).lean().exec()) as (UserSchemaType & { _id: mongoose.Types.ObjectId }) | null;
+    if (!user) return undefined;
+    return { ...user, id: user._id.toString() };
+  }
+
+  async createUser(insertUser: InsertUser): Promise<UserSchemaType> {
+    const newUser = new User({
+      ...insertUser,
       createdAt: new Date(),
-    };
-    this.users.set(demoUser.id, demoUser);
-
-    // Create demo loan positions
-    const positions: LoanPosition[] = [
-      {
-        id: "btc-001",
-        userId: demoUser.id,
-        positionName: "BTC-001",
-        collateralBtc: "0.45",
-        collateralUsdt: "3200.00",
-        borrowedAmount: "8500.00",
-        apr: "8.5",
-        healthFactor: "1.34",
-        isProtected: true,
-        liquidationPrice: "25600.00",
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-      },
-      {
-        id: "btc-002",
-        userId: demoUser.id,
-        positionName: "BTC-002",
-        collateralBtc: "0.32",
-        collateralUsdt: "0.00",
-        borrowedAmount: "5500.00",
-        apr: "8.2",
-        healthFactor: "1.82",
-        isProtected: true,
-        liquidationPrice: "22100.00",
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date(),
-      },
-    ];
-    positions.forEach(pos => this.loanPositions.set(pos.id, pos));
-
-    // Create demo alerts
-    const alertsData: Alert[] = [
-      {
-        id: randomUUID(),
-        userId: demoUser.id,
-        type: "price_drop",
-        severity: "warning",
-        title: "Price Drop Detected",
-        message: "BTC dropped 3.2% in 15min",
-        isRead: false,
-        metadata: { priceChange: -3.2, timeFrame: "15min" },
-        createdAt: new Date(Date.now() - 2 * 60 * 1000),
-      },
-      {
-        id: randomUUID(),
-        userId: demoUser.id,
-        type: "auto_topup",
-        severity: "info",
-        title: "Auto Top-Up Success",
-        message: "Added 1,500 USDT collateral",
-        isRead: false,
-        metadata: { amount: 1500, currency: "USDT" },
-        createdAt: new Date(Date.now() - 18 * 60 * 1000),
-      },
-      {
-        id: randomUUID(),
-        userId: demoUser.id,
-        type: "model_update",
-        severity: "info",
-        title: "AI Model Update",
-        message: "Accuracy improved to 74.2%",
-        isRead: false,
-        metadata: { newAccuracy: 74.2 },
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      },
-    ];
-    alertsData.forEach(alert => this.alerts.set(alert.id, alert));
-
-    // Create initial price history
-    const currentPrice = 31247.82;
-    const priceEntry: PriceHistory = {
-      id: randomUUID(),
-      symbol: "BTC",
-      price: currentPrice.toString(),
-      source: "binance",
-      timestamp: new Date(),
-    };
-    this.priceHistory.set(priceEntry.id, priceEntry);
-
-    // Create demo AI prediction
-    const prediction: AiPrediction = {
-      id: randomUUID(),
-      timestamp: new Date(),
-      currentPrice: currentPrice.toString(),
-      predictedPrice: "29850.00",
-      timeHorizon: 2,
-      confidence: "73.00",
-      riskLevel: "medium",
-      modelAccuracy: "72.00",
-      priceData: this.generatePriceData(),
-    };
-    this.aiPredictions.push(prediction);
+      updatedAt: new Date(),
+    });
+    const savedUser = await newUser.save();
+    return { ...savedUser.toJSON(), id: savedUser._id.toString() };
   }
 
+  async updateUser(id: string, updates: Partial<UserSchemaType>): Promise<UserSchemaType | undefined> {
+    const updatedUser = (await User.findByIdAndUpdate(id, { ...updates, updatedAt: new Date() }, { new: true }).lean().exec()) as (UserSchemaType & { _id: mongoose.Types.ObjectId }) | null;
+    if (!updatedUser) return undefined;
+    return { ...updatedUser, id: updatedUser._id.toString() };
+  }
+
+  // Loan position methods (now MongoDB-backed)
+  async getLoanPositions(userId: string): Promise<LoanPosition[]> {
+    const positions = (await LoanPositionModel.find({ userId }).lean().exec()) as RawLoanPositionDocument[];
+    return positions.map((pos) => ({
+      id: pos._id.toString(),
+      userId: pos.userId,
+      positionName: pos.positionName,
+      collateralBtc: pos.collateralBtc,
+      collateralUsdt: pos.collateralUsdt, // Include collateralUsdt in mapping
+      borrowedAmount: pos.borrowedAmount,
+      apr: pos.apr,
+      healthFactor: pos.healthFactor,
+      isProtected: pos.isProtected,
+      liquidationPrice: pos.liquidationPrice,
+      createdAt: new Date(pos.createdAt),
+      updatedAt: new Date(pos.updatedAt),
+    }));
+  }
+
+  async getLoanPosition(id: string): Promise<LoanPosition | undefined> {
+    const position = (await LoanPositionModel.findById(id).lean().exec()) as RawLoanPositionDocument | null;
+    if (!position) return undefined;
+    return {
+      id: position._id.toString(),
+      userId: position.userId,
+      positionName: position.positionName,
+      collateralBtc: position.collateralBtc,
+      collateralUsdt: position.collateralUsdt, // Include collateralUsdt in mapping
+      borrowedAmount: position.borrowedAmount,
+      apr: position.apr,
+      healthFactor: position.healthFactor,
+      isProtected: position.isProtected,
+      liquidationPrice: position.liquidationPrice,
+      createdAt: new Date(position.createdAt),
+      updatedAt: new Date(position.updatedAt),
+    };
+  }
+
+  async createLoanPosition(loanRequest: CreateLoanRequest): Promise<LoanPosition> {
+    const userId = "demo-user-id"; // Assuming a demo user for simplicity
+    const newLoan = new LoanPositionModel({
+      userId,
+      positionName: loanRequest.positionName,
+      collateralBtc: loanRequest.collateralBtc.toFixed(8),
+      collateralUsdt: "0.00", // Default collateralUsdt
+      borrowedAmount: loanRequest.borrowedAmount.toFixed(2),
+      apr: "7.5", // Default APR
+      healthFactor: "2.0", // Default healthy health factor
+      isProtected: true,
+      liquidationPrice: "25000.00", // Example liquidation price
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const savedLoan = await newLoan.save();
+    return {
+      id: savedLoan._id.toString(),
+      userId: savedLoan.userId,
+      positionName: savedLoan.positionName,
+      collateralBtc: savedLoan.collateralBtc,
+      collateralUsdt: savedLoan.collateralUsdt, // Include collateralUsdt in mapping
+      borrowedAmount: savedLoan.borrowedAmount,
+      apr: savedLoan.apr,
+      healthFactor: savedLoan.healthFactor,
+      isProtected: savedLoan.isProtected,
+      liquidationPrice: savedLoan.liquidationPrice,
+      createdAt: new Date(savedLoan.createdAt),
+      updatedAt: new Date(savedLoan.updatedAt),
+    };
+  }
+
+  async updateLoanPosition(id: string, updates: Partial<LoanPosition>): Promise<LoanPosition | undefined> {
+    const updatedLoan = (await LoanPositionModel.findByIdAndUpdate(id, { ...updates, updatedAt: new Date() }, { new: true }).lean().exec()) as RawLoanPositionDocument | null;
+    if (!updatedLoan) return undefined;
+    return {
+      id: updatedLoan._id.toString(),
+      userId: updatedLoan.userId,
+      positionName: updatedLoan.positionName,
+      collateralBtc: updatedLoan.collateralBtc,
+      collateralUsdt: updatedLoan.collateralUsdt, // Include collateralUsdt in mapping
+      borrowedAmount: updatedLoan.borrowedAmount,
+      apr: updatedLoan.apr,
+      healthFactor: updatedLoan.healthFactor,
+      isProtected: updatedLoan.isProtected,
+      liquidationPrice: updatedLoan.liquidationPrice,
+      createdAt: new Date(updatedLoan.createdAt),
+      updatedAt: new Date(updatedLoan.updatedAt),
+    };
+  }
+
+  async deleteLoanPosition(id: string): Promise<void> {
+    await LoanPositionModel.findByIdAndDelete(id).exec();
+  }
+
+  // AI prediction methods (remain in-memory for now)
   private generatePriceData() {
     const now = new Date();
     const data = [];
-    
+
     // Historical data (last 24 hours)
     for (let i = 24; i >= 0; i--) {
       const time = new Date(now.getTime() - (i * 60 * 60 * 1000));
@@ -188,7 +258,7 @@ export class MemStorage implements IStorage {
         predicted: null,
       });
     }
-    
+
     // Prediction data (next 6 hours)
     const currentPrice = data[data.length - 1].actual;
     for (let i = 1; i <= 6; i++) {
@@ -200,82 +270,10 @@ export class MemStorage implements IStorage {
         predicted: prediction,
       });
     }
-    
+
     return data;
   }
 
-  // User methods
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { 
-      ...insertUser, 
-      id,
-      createdAt: new Date(),
-      walletAddress: insertUser.walletAddress || null,
-      linkedWalletBalance: insertUser.linkedWalletBalance || null,
-      smsNumber: insertUser.smsNumber || null,
-      autoTopUpEnabled: insertUser.autoTopUpEnabled ?? null,
-      smsAlertsEnabled: insertUser.smsAlertsEnabled ?? null,
-    };
-    this.users.set(id, user);
-    return user;
-  }
-
-  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-    
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    return updatedUser;
-  }
-
-  // Loan position methods
-  async getLoanPositions(userId: string): Promise<LoanPosition[]> {
-    return Array.from(this.loanPositions.values()).filter(pos => pos.userId === userId);
-  }
-
-  async getLoanPosition(id: string): Promise<LoanPosition | undefined> {
-    return this.loanPositions.get(id);
-  }
-
-  async createLoanPosition(insertPosition: InsertLoanPosition): Promise<LoanPosition> {
-    const id = randomUUID();
-    const position: LoanPosition = {
-      ...insertPosition,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      collateralUsdt: insertPosition.collateralUsdt || null,
-      isProtected: insertPosition.isProtected ?? null,
-      liquidationPrice: insertPosition.liquidationPrice || null,
-    };
-    this.loanPositions.set(id, position);
-    return position;
-  }
-
-  async updateLoanPosition(id: string, updates: Partial<LoanPosition>): Promise<LoanPosition | undefined> {
-    const position = this.loanPositions.get(id);
-    if (!position) return undefined;
-    
-    const updatedPosition = { 
-      ...position, 
-      ...updates, 
-      updatedAt: new Date() 
-    };
-    this.loanPositions.set(id, updatedPosition);
-    return updatedPosition;
-  }
-
-  // AI prediction methods
   async getLatestPrediction(): Promise<AiPrediction | undefined> {
     return this.aiPredictions[this.aiPredictions.length - 1];
   }
@@ -296,34 +294,7 @@ export class MemStorage implements IStorage {
     return this.aiPredictions.slice(-limit);
   }
 
-  // Alert methods
-  async getAlerts(userId: string, limit = 20): Promise<Alert[]> {
-    return Array.from(this.alerts.values())
-      .filter(alert => alert.userId === userId)
-      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
-      .slice(0, limit);
-  }
-
-  async createAlert(insertAlert: InsertAlert): Promise<Alert> {
-    const alert: Alert = {
-      ...insertAlert,
-      id: randomUUID(),
-      createdAt: new Date(),
-      isRead: insertAlert.isRead ?? null,
-      metadata: insertAlert.metadata || null,
-    };
-    this.alerts.set(alert.id, alert);
-    return alert;
-  }
-
-  async markAlertAsRead(id: string): Promise<void> {
-    const alert = this.alerts.get(id);
-    if (alert) {
-      this.alerts.set(id, { ...alert, isRead: true });
-    }
-  }
-
-  // Top-up transaction methods
+  // Top-up transaction methods (remain in-memory for now)
   async getTopUpTransactions(userId: string, limit = 20): Promise<TopUpTransaction[]> {
     return Array.from(this.topUpTransactions.values())
       .filter(tx => tx.userId === userId)
@@ -344,14 +315,14 @@ export class MemStorage implements IStorage {
     return transaction;
   }
 
-  // Price history methods
+  // Price history methods (remain in-memory for now)
   async getLatestPrice(symbol: string): Promise<PriceHistory | undefined> {
     return Array.from(this.priceHistory.values())
       .filter(price => price.symbol === symbol)
       .sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0))[0];
   }
 
-  async createPriceHistory(insertPrice: InsertPriceHistory): Promise<PriceHistory> {
+  async createPriceHistory(insertPrice: PriceHistory): Promise<PriceHistory> {
     const price: PriceHistory = {
       ...insertPrice,
       id: randomUUID(),
@@ -376,4 +347,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new MongoStorage();

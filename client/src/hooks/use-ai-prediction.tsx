@@ -86,13 +86,15 @@ export const useAiPrediction = ({ currentPriceData, timeframe, onPrediction }: U
         riskLevel = "high";
     }
 
+    const aiModelAccuracy = getDynamicModelAccuracy(); // Calculate once
+
     setPrediction({
       riskLevel,
-      modelAccuracy: getDynamicModelAccuracy(),
+      modelAccuracy: aiModelAccuracy,
     });
 
     if (onPrediction) {
-      onPrediction({ riskLevel, modelAccuracy: getDynamicModelAccuracy() });
+      onPrediction({ riskLevel, modelAccuracy: aiModelAccuracy });
     }
 
   }, [currentPriceData, timeframe, calculateTrend, calculateVolatility, getDynamicModelAccuracy, onPrediction]);

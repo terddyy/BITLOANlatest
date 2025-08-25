@@ -1,15 +1,64 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { type Notification } from "@shared/schema"; // Import the new Notification type
-import { useState } from "react";
+import { useState, useEffect, memo } from "react"; // Import memo
 
 interface AlertsPanelProps {
   alerts: Notification[]; // Use Notification type
 }
 
+// Extracted AlertItem component for memoization
+interface AlertItemProps {
+  alert: Notification;
+  getTimeAgo: (createdAt: string) => string;
+  getNotificationColor: (type: string) => string;
+  markAsRead: (notificationId: string) => void;
+}
+
+const AlertItem = memo(({
+  alert,
+  getTimeAgo,
+  getNotificationColor,
+  markAsRead,
+}: AlertItemProps) => {
+  return (
+    <div
+      key={alert.id}
+      className={`flex items-start space-x-3 p-3 bg-slate-800 rounded-lg cursor-pointer transition-opacity ${
+        alert.isRead ? "opacity-60" : ""
+      }`}
+      onClick={() => {
+        if (!alert.isRead) {
+          markAsRead(alert.id);
+        }
+      }}
+      data-testid={`alert-${alert.id}`}
+    >
+      <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${getNotificationColor(alert.type)}`}></div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-white" data-testid={`alert-title-${alert.id}`}>
+          {alert.message} {/* Display message instead of title */}
+        </div>
+        <div className="text-xs text-slate-400" data-testid={`alert-time-${alert.id}`}>
+          {getTimeAgo(alert.createdAt)}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function AlertsPanel({ alerts }: AlertsPanelProps) {
   const queryClient = useQueryClient();
   const [showAllAlerts, setShowAllAlerts] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60 * 1000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
@@ -30,13 +79,14 @@ export default function AlertsPanel({ alerts }: AlertsPanelProps) {
   };
 
   const getTimeAgo = (createdAt: string) => {
-    const now = new Date();
     const created = new Date(createdAt);
-    const diffMs = now.getTime() - created.getTime();
+    const diffMs = currentTime.getTime() - created.getTime(); // Use currentTime
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
 
-    if (diffMins < 60) {
+    if (diffMins < 1) { // Show "just now" if less than 1 minute
+      return "just now";
+    } else if (diffMins < 60) {
       return `${diffMins} min ago`;
     } else if (diffHours < 24) {
       return `${diffHours}h ago`;
@@ -54,28 +104,13 @@ export default function AlertsPanel({ alerts }: AlertsPanelProps) {
 
       <div className="space-y-3">
         {alertsToDisplay.map((alert) => (
-          <div
+          <AlertItem 
             key={alert.id}
-            className={`flex items-start space-x-3 p-3 bg-slate-800 rounded-lg cursor-pointer transition-opacity ${
-              alert.isRead ? "opacity-60" : ""
-            }`}
-            onClick={() => {
-              if (!alert.isRead) {
-                markAsReadMutation.mutate(alert.id);
-              }
-            }}
-            data-testid={`alert-${alert.id}`}
-          >
-            <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${getNotificationColor(alert.type)}`}></div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white" data-testid={`alert-title-${alert.id}`}>
-                {alert.message} {/* Display message instead of title */}
-              </div>
-              <div className="text-xs text-slate-400" data-testid={`alert-time-${alert.id}`}>
-                {getTimeAgo(alert.createdAt)}
-              </div>
-            </div>
-          </div>
+            alert={alert}
+            getTimeAgo={getTimeAgo}
+            getNotificationColor={getNotificationColor}
+            markAsRead={markAsReadMutation.mutate}
+          />
         ))}
 
         {alerts.length === 0 && (

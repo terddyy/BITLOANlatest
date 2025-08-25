@@ -15,7 +15,8 @@ interface NavigationProps {
   user: {
     username: string;
     walletAddress?: string | null;
-    linkedWalletBalance?: string | null;
+    linkedWalletBalanceBtc?: string | null; // Added new BTC balance field (optional)
+    linkedWalletBalanceUsdt?: string | null; // Added new USDT balance field (optional)
     autoTopUpEnabled?: boolean | null;
     smsAlertsEnabled?: boolean | null;
   };
@@ -41,10 +42,10 @@ export default function Navigation({ user }: NavigationProps) {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-8">
           <Link href="/" className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-bitcoin rounded-full flex items-center justify-center" data-testid="logo">
-              <span className="text-dark-bg font-bold text-sm">₿</span>
+            <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center" data-testid="logo">
+              <img src="/src/Images/bitloanlogowithbackground.png" alt="BitLoan Logo" className="w-full h-full object-cover" />
             </div>
-            <h1 className="text-xl font-bold text-white" data-testid="app-title">BitLoan</h1>
+            <h1 className="text-2xl font-bold text-white" data-testid="app-title">BitLoan</h1>
           </Link>
           <div className="hidden md:flex space-x-6">
             <Link href="/" className={getLinkClass("/")} data-testid="nav-dashboard">Dashboard</Link>

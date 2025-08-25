@@ -48,8 +48,9 @@ interface RealTimePriceChartProps {
   onTimeframeChange: (timeframe: Timeframe) => void; // Callback to update parent with timeframe
 }
 
-const BINANCE_KLINE_API_BASE_URL = "https://api.binance.com/api/v3/klines";
-const BINANCE_24HR_TICKER_API_URL = "https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT";
+// Removed direct Binance API URLs, now using backend proxy
+// const BINANCE_KLINE_API_BASE_URL = "https://api.binance.com/api/v3/klines";
+// const BINANCE_24HR_TICKER_API_URL = "https://api.binance.com/api/v3/ticker/24hr?symbol=BTC";
 
 const getBinanceKlineParams = (timeframe: Timeframe) => {
   switch (timeframe) {
@@ -75,12 +76,14 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpda
       queryKey: ['binance-bitcoin-historical', selectedTimeframe],
       queryFn: async () => {
         const { interval, limit } = getBinanceKlineParams(selectedTimeframe);
-        const response = await fetch(`${BINANCE_KLINE_API_BASE_URL}?symbol=BTCUSDT&interval=${interval}&limit=${limit}`);
+        const response = await fetch(`/api/binance-klines?symbol=BTCUSDT&interval=${interval}&limit=${limit}`); // Use proxy endpoint with BTCUSDT
         if (!response.ok) {
           throw new Error(`Binance API error: ${response.statusText}`);
         }
         const result = await response.json();
+        // console.log("Raw Binance Kline API response:", result); // DEBUG
         if (!result || !Array.isArray(result)) {
+          // console.error("Invalid data structure from Binance API:", result); // Remove console log
           throw new Error('Invalid data structure from Binance API');
         }
 
@@ -91,17 +94,20 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpda
         }));
 
         // For simplicity and to match the previous requirement, we will still slice to 50.
-        return processedData.slice(-50);
+        // console.log("Processed historical data before slice:", processedData); // DEBUG
+        const slicedData = processedData.slice(-50);
+        // console.log("Processed historical data after slice:", slicedData); // DEBUG
+        return slicedData;
       },
       staleTime: 5000, // Data considered fresh for 5 seconds for all timeframes
-      refetchInterval: 5000, // Refetch every 5 seconds for all timeframes
-      placeholderData: [],
+      refetchInterval: 5000,
     }
   );
 
   // Effect to call onPriceDataUpdate when historicalData changes
   useEffect(() => {
     if (historicalData) {
+      // console.log("RealTimePriceChart: historicalData", historicalData); // Remove console log
       onPriceDataUpdate(historicalData);
     }
   }, [historicalData, onPriceDataUpdate]);
@@ -114,11 +120,13 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpda
   const { data: ticker24hData, isLoading: isLoading24hTicker } = useQuery<TickerData>({
     queryKey: ['binance-24h-ticker'],
     queryFn: async () => {
-      const response = await fetch(BINANCE_24HR_TICKER_API_URL);
+      const response = await fetch("/api/binance-24h-ticker?symbol=BTCUSDT"); // Use proxy endpoint with BTCUSDT
       if (!response.ok) {
         throw new Error(`Binance 24h Ticker API error: ${response.statusText}`);
       }
-      return response.json();
+      const result = await response.json();
+      // console.log("Raw Binance 24hr Ticker API response:", result); // DEBUG
+      return result;
     },
     staleTime: 5000,
     refetchInterval: 5000,
@@ -127,7 +135,7 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpda
   // const { data: kline1hData, isLoading: isLoading1hKline } = useQuery<PriceData[]>({
   //   queryKey: ['binance-1h-kline'],
   //   queryFn: async () => {
-  //     const response = await fetch(`${BINANCE_KLINE_API_BASE_URL}?symbol=BTCUSDT&interval=1h&limit=2`);
+  //     const response = await fetch(`${BINANCE_KLINE_API_BASE_URL}?symbol=BTC&interval=1h&limit=2`);
   //     if (!response.ok) {
   //       throw new Error(`Binance 1h Kline API error: ${response.statusText}`);
   //     }
@@ -143,6 +151,7 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpda
 
   const priceData = historicalData || [];
   const latestPrice = priceData.length > 0 ? priceData[priceData.length - 1].price : 0;
+  // console.log("Calculated latestPrice:", latestPrice); // DEBUG
 
   const { prediction } = useAiPrediction({ currentPriceData: priceData, timeframe: selectedTimeframe });
 
@@ -154,7 +163,6 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpda
   //   if (lastHistoricalPoint) {
   //     const lastHistoricalTime = new Date(lastHistoricalPoint.time);
   //     const predictedTime = new Date(lastHistoricalTime.getTime() + (prediction.timeHorizon * 60 * 60 * 1000)); // prediction.timeHorizon is in hours
-
   //     predictionPriceData.push(
   //       { time: lastHistoricalTime.toISOString(), price: lastHistoricalPoint.price }, // Start prediction from last actual price
   //       { time: predictedTime.toISOString(), price: parseFloat(prediction.predictedPrice) }
@@ -213,8 +221,12 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpda
       tooltip: {
         callbacks: {
           title: (tooltipItems) => {
-            const date = new Date(priceData[tooltipItems[0].datasetIndex === 0 ? tooltipItems[0].dataIndex : priceData.length -1].time);
-            return date.toLocaleString();
+            const dataIndex = tooltipItems[0].dataIndex;
+            if (dataIndex !== undefined && priceData[dataIndex]) {
+              const date = new Date(priceData[dataIndex].time);
+              return date.toLocaleString();
+            }
+            return '';
           },
           label: (tooltipItem) => {
             return `${tooltipItem.dataset.label}: $${(tooltipItem.raw as number)?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -326,11 +338,6 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpda
             <Info className="w-4 h-4 text-slate-400 cursor-pointer" />
           </div>
         )}
-        {/* {kline1hData && kline1hData.length === 2 && (
-          <span className={`text-base font-semibold ${kline1hData[1].price - kline1hData[0].price >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-            {kline1hData[1].price - kline1hData[0].price >= 0 ? '+' : ''}{(kline1hData[1].price - kline1hData[0].price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (1H)
-          </span>
-        )} */}
       </div>
       {prediction && prediction.riskLevel && (
         <div className="grid grid-cols-1 gap-4 mb-4">
@@ -346,7 +353,7 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpda
           </div>
         </div>
       )}
-      <div className="relative flex-grow">
+      <div className="relative flex-grow h-64 md:h-80 lg:h-96"> {/* Added explicit height classes */}
         {(isLoading || isFetching) && (
           <div className="absolute inset-0 flex items-center justify-center bg-card-bg/80 z-10 rounded-xl">
             <Loader2 className="h-12 w-12 animate-spin text-bitcoin" />

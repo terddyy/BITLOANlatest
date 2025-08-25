@@ -28,7 +28,7 @@ Data sources: Chainlink, Binance API
 User Alerts
 
 
-In-app + SMS + wallet notifications
+In-app + SMS 
 
 
 Instant Top-Up
