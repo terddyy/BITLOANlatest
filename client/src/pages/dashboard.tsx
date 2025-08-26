@@ -38,22 +38,11 @@ interface DashboardResponse {
   stats: {
     btcPrice: { price: number; change: number; changePercent: number };
     totalCollateral: number;
-    healthFactor: number;
+    healthFactor: number; // Changed to number
     activeLoanCount: number;
     totalBorrowed: number;
   };
-  loanPositions: {
-    id: string;
-    positionName: string;
-    collateralBtc: string;
-    borrowedAmount: string;
-    apr: string;
-    healthFactor: string;
-    isProtected: boolean;
-    createdAt: string;
-    updatedAt?: string | null;
-    liquidationPrice?: string | null;
-  }[];
+  loanPositions: LoanPosition[];
   // Removed prediction from here as it's now client-side
 }
 
@@ -154,7 +143,7 @@ export default function Dashboard() {
 
   // Use real-time data if available, otherwise fall back to API data
   const currentBtcPrice = realtimeData?.btcPrice || safeData.stats?.btcPrice || { price: 0, change: 0, changePercent: 0 };
-  const currentHealthFactor = realtimeData?.healthFactor ?? safeData.stats?.healthFactor ?? 0;
+  const currentHealthFactor = parseFloat(String(realtimeData?.healthFactor ?? safeData.stats?.healthFactor ?? 0));
   const currentLoanPositions = realtimeData?.loanPositions || safeData.loanPositions || [];
 
   // Determine the loanPositionId to pass to ProtectionPanel
@@ -179,7 +168,7 @@ export default function Dashboard() {
         {/* Main Dashboard Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
           {/* Real-time Price Chart */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 h-[600px]">
             <RealTimePriceChart 
               onPriceDataUpdate={debouncedSetCurrentPriceChartData}
               onTimeframeChange={setCurrentTimeframe}
@@ -199,7 +188,7 @@ export default function Dashboard() {
 
         {/* Loan Positions */}
         <LoanPositionsTable 
-          positions={safeData.loanPositions}
+          positions={currentLoanPositions}
           btcPrice={currentBtcPrice}
         />
 

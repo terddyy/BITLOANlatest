@@ -23,7 +23,9 @@ const MONGODB_URI = process.env.MONGODB_URI; // Use environment variable for Mon
 // Connect to MongoDB Atlas
 // Only attempt to connect if MONGODB_URI is defined
 if (MONGODB_URI) {
-  mongoose.connect(MONGODB_URI)
+  mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 20000, // Increase timeout to 20 seconds
+  })
     .then(() => console.log("Connected to MongoDB Atlas"))
     .catch((err) => console.error("MongoDB Atlas connection error:", err));
 } else {

@@ -4,17 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter"; // Import useLocation
-
-interface LoanPosition {
-  id: string;
-  positionName: string;
-  collateralBtc: string;
-  borrowedAmount: string;
-  apr: string;
-  healthFactor: string;
-  isProtected: boolean;
-  createdAt: string;
-}
+import { LoanPosition } from "@shared/schema"; // Import LoanPosition from shared schema
 
 interface LoanPositionsTableProps {
   positions: LoanPosition[];
@@ -31,7 +21,7 @@ export default function LoanPositionsTable({ positions, btcPrice }: LoanPosition
       return apiRequest("POST", "/api/topup", {
         loanPositionId: positionId,
         amount: 1000,
-        currency: "BTC",
+        currency: "BTC", // Default to BTC for now
       });
     },
     onSuccess: () => {
@@ -106,10 +96,12 @@ export default function LoanPositionsTable({ positions, btcPrice }: LoanPosition
           </thead>
           <tbody className="divide-y divide-slate-700">
             {positions.map((position) => {
-              const healthFactor = parseFloat(position.healthFactor);
+              const healthFactor = parseFloat(position.borrowedAmount) > 0
+                ? (parseFloat(position.collateralBtc) * btcPrice.price + parseFloat(position.collateralUsdt || "0")) / parseFloat(position.borrowedAmount)
+                : Infinity; // Calculate dynamically
               const healthStatus = getHealthFactorStatus(healthFactor);
               const collateralBtcValue = parseFloat(position.collateralBtc) * btcPrice.price;
-              const totalCollateralValue = collateralBtcValue;
+              const totalCollateralValue = collateralBtcValue + parseFloat(position.collateralUsdt || "0"); // Include USDT in total value
 
               return (
                 <tr key={position.id} className="hover:bg-slate-800/50 transition-colors" data-testid={`position-row-${position.id}`}>

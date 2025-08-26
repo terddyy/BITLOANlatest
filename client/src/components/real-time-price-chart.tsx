@@ -353,7 +353,7 @@ const RealTimePriceChart: React.FC<RealTimePriceChartProps> = ({ onPriceDataUpda
           </div>
         </div>
       )}
-      <div className="relative flex-grow h-64 md:h-80 lg:h-96"> {/* Added explicit height classes */}
+      <div className="relative flex-grow h-48 md:h-64 lg:h-80"> {/* Adjusted explicit height classes */}
         {(isLoading || isFetching) && (
           <div className="absolute inset-0 flex items-center justify-center bg-card-bg/80 z-10 rounded-xl">
             <Loader2 className="h-12 w-12 animate-spin text-bitcoin" />

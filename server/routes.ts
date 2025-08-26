@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
-import { priceMonitorService } from "./services/price-monitor";
+import { MongoStorage, IStorage } from "./storage"; // Import MongoStorage class and IStorage interface
+import { PriceMonitorService } from "./services/price-monitor"; // Import PriceMonitorService
 import { aiPredictionService } from "./services/ai-prediction";
 import Notification from './models/Notification'; // Import the Notification model
 import LoanPositionModel from './models/LoanPosition'; // Import the LoanPosition model
@@ -128,13 +128,16 @@ async function performTopUp({
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
+  const storage: IStorage = new MongoStorage(); // Instantiate MongoStorage
+  const priceMonitorService = new PriceMonitorService(storage); // Instantiate PriceMonitorService with storage
+
   // Start background services
+  await storage.init(); // Initialize storage after DB connection
   await priceMonitorService.initialize();
   priceMonitorService.start();
 
   // Get the actual demo user ID from storage after initialization
-  const demoUser = await storage.getUserByUsername("trader.eth");
-  const userId = demoUser?.id || "demo-user-id"; // Use the actual user ID or fallback
+  const userId = storage.getDemoUserId(); // Use the actual user ID from storage
 
   // WebSocket server for real-time updates - TEMPORARILY COMMENTED OUT
   // const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
@@ -280,6 +283,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Repay loan
+  app.patch("/api/loans/:id/repay", async (req, res) => {
+    try {
+      const { id } = req.params; // loanPositionId
+      const { amount, currency } = req.body; // Repayment amount and currency
+
+      if (!id || !amount || !currency) {
+        return res.status(400).json({ message: "Missing required fields: loan ID, amount, or currency." });
+      }
+
+      const parsedAmount = parseFloat(amount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        return res.status(400).json({ message: "Repayment amount must be a positive number." });
+      }
+
+      // Use the dynamically fetched userId
+      const updatedLoan = await storage.repayLoan(userId, id, parsedAmount, currency);
+
+      if (!updatedLoan) {
+        return res.status(404).json({ message: "Loan position not found or repayment failed." });
+      }
+
+      res.json({ success: true, loan: updatedLoan });
+    } catch (error) {
+      console.error(`Error repaying loan:`, error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+
   // Get dashboard data
   app.get("/api/dashboard", async (req, res) => {
     try {
@@ -299,10 +331,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate total collateral and health metrics
       const totalCollateralBtc = loanPositions.reduce((sum, pos) => sum + parseFloat(pos.collateralBtc), 0);
-      const totalCollateralUsdt = loanPositions.reduce((sum, pos) => sum + parseFloat(pos.collateralUsdt || "0"), 0);
+      // const totalCollateralUsdt = loanPositions.reduce((sum, pos) => sum + parseFloat(pos.collateralUsdt || "0"), 0);
       const totalBorrowed = loanPositions.reduce((sum, pos) => sum + parseFloat(pos.borrowedAmount), 0);
       
-      const totalCollateralValue = (totalCollateralBtc * priceData.price) + totalCollateralUsdt; 
+      // const totalCollateralValue = (totalCollateralBtc * priceData.price) + totalCollateralUsdt; 
+      const totalCollateralValue = totalCollateralBtc + parseFloat(user.linkedWalletBalanceBtc || "0"); // Display total BTC collateral
       const avgHealthFactor = loanPositions.length > 0 
         ? (totalCollateralValue / totalBorrowed).toFixed(2) 
         : "0.00";
@@ -384,11 +417,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/settings", async (req, res) => {
     try {
       // Use the dynamically fetched userId
-      const { autoTopUpEnabled, smsAlertsEnabled } = req.body;
+      const { autoTopUpEnabled, smsAlertsEnabled, linkedWalletBalanceBtc, linkedWalletBalanceUsdt } = req.body;
 
       const updates: Partial<UserType> = {};
       if (typeof autoTopUpEnabled === "boolean") updates.autoTopUpEnabled = autoTopUpEnabled;
       if (typeof smsAlertsEnabled === "boolean") updates.smsAlertsEnabled = smsAlertsEnabled;
+      if (typeof linkedWalletBalanceBtc === "string") updates.linkedWalletBalanceBtc = linkedWalletBalanceBtc;
+      if (typeof linkedWalletBalanceUsdt === "string") updates.linkedWalletBalanceUsdt = linkedWalletBalanceUsdt;
 
       const user = await storage.updateUser(userId, updates);
       if (!user) {

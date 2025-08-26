@@ -1,4 +1,4 @@
-import { storage } from "../storage";
+import { IStorage, storage } from "../storage";
 import { aiPredictionService } from "./ai-prediction";
 
 const COINGECKO_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd";
@@ -6,6 +6,11 @@ const COINGECKO_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bit
 export class PriceMonitorService {
   private isRunning = false;
   private intervalId: NodeJS.Timeout | null = null;
+  private storage: IStorage; // Add storage dependency
+
+  constructor(storage: IStorage) {
+    this.storage = storage;
+  }
 
   async initialize() {
     console.log('Initializing price monitoring service...');
@@ -45,7 +50,7 @@ export class PriceMonitorService {
       console.log('Fetched price from CoinGecko:', currentPrice);
     } catch (coinGeckoError) {
       console.error('CoinGecko fetch failed, falling back to mock price:', coinGeckoError);
-        const lastPrice = await storage.getLatestPrice("BTC");
+        const lastPrice = await this.storage.getLatestPrice("BTC");
         currentPrice = lastPrice ? parseFloat(lastPrice.price) : 31247.82; // Fallback to last known or default price
         console.log('Using fallback mock price:', currentPrice);
     }
@@ -56,7 +61,7 @@ export class PriceMonitorService {
     }
     
     try {
-      await storage.createPriceHistory({
+      await this.storage.createPriceHistory({
         symbol: "BTC",
         price: currentPrice.toString(),
         source: "coin_gecko_fallback", // Indicate the source of the price
@@ -64,7 +69,7 @@ export class PriceMonitorService {
 
       // Simulate CoinGecko price feed as backup for demonstration
       const coinGeckoPrice = currentPrice * (0.998 + Math.random() * 0.004); // Slight variance
-      await storage.createPriceHistory({
+      await this.storage.createPriceHistory({
         symbol: "BTC",
         price: coinGeckoPrice.toString(),
         source: "coin_gecko_simulated",
@@ -94,13 +99,13 @@ export class PriceMonitorService {
   }
 
   async getCurrentPrice(): Promise<number> {
-    const latestPrice = await storage.getLatestPrice("BTC");
+    const latestPrice = await this.storage.getLatestPrice("BTC");
     return latestPrice ? parseFloat(latestPrice.price) : 31247.82;
   }
 
   async getPriceChange24h(): Promise<{ price: number; change: number; changePercent: number }> {
     const current = await this.getCurrentPrice();
-    const yesterdayPriceData = await storage.getPastPrice("BTC", 24 * 60 * 60 * 1000); // Get price 24 hours ago
+    const yesterdayPriceData = await this.storage.getPastPrice("BTC", 24 * 60 * 60 * 1000); // Get price 24 hours ago
     const yesterdayPrice = yesterdayPriceData ? parseFloat(yesterdayPriceData.price) : current * 1.044; // Fallback to mock if no data
     
     const change = current - yesterdayPrice;
@@ -114,5 +119,5 @@ export class PriceMonitorService {
   }
 }
 
-export const priceMonitorService = new PriceMonitorService();
+export const priceMonitorService = new PriceMonitorService(storage);
 

@@ -7,7 +7,7 @@ interface StatsGridProps {
       change: number;
       changePercent: number;
     };
-    totalCollateral: number;
+    totalCollateral: number; // Changed to number for BTC amount
     healthFactor: number;
     activeLoanCount: number;
     totalBorrowed: number;
@@ -66,7 +66,7 @@ export default function StatsGrid({ stats, btcPrice }: StatsGridProps) {
         </div>
         <div className="space-y-2">
           <div className="text-2xl font-bold text-white" data-testid="collateral-total">
-            ${(stats.totalCollateral || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            {(stats.totalCollateral || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })} BTC
           </div>
           <div className="text-sm text-slate-400">Multi-asset collateral</div>
         </div>
@@ -86,7 +86,7 @@ export default function StatsGrid({ stats, btcPrice }: StatsGridProps) {
         </div>
         <div className="space-y-2">
           <div className={`text-2xl font-bold ${healthFactorColor}`} data-testid="health-factor-value">
-            {healthFactor.toFixed(2)}
+            {parseFloat(healthFactor).toFixed(2)}
           </div>
           <div className="text-sm text-slate-400">Safe: {'>'}1.5 | Danger: {'<'}1.2</div>
         </div>
