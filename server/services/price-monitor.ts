@@ -65,6 +65,7 @@ export class PriceMonitorService {
         symbol: "BTC",
         price: currentPrice.toString(),
         source: "coin_gecko_fallback", // Indicate the source of the price
+        timestamp: new Date(), // Added timestamp
       });
 
       // Simulate CoinGecko price feed as backup for demonstration
@@ -73,6 +74,7 @@ export class PriceMonitorService {
         symbol: "BTC",
         price: coinGeckoPrice.toString(),
         source: "coin_gecko_simulated",
+        timestamp: new Date(), // Added timestamp
       });
 
     } catch (error) {
