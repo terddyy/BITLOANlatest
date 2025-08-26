@@ -74,6 +74,7 @@ export class MongoStorage implements IStorage {
       console.log("Demo user not found, creating...");
       const newDemoUser = new User({
         username: "trader.eth",
+        password: "demo123", // Added a default password for the demo user
         walletAddress: "0x9730c4e0b01962a66b7582b7b8a7b21a329d4d4f",
         linkedWalletBalanceBtc: "0.5",
         linkedWalletBalanceUsdt: "20000",
