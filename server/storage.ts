@@ -48,6 +48,7 @@ export interface IStorage {
   createLoanPosition(loanRequest: CreateLoanRequest): Promise<LoanPositionType & { id: string }>;
   updateLoanPosition(id: string, updates: Partial<LoanPositionType>): Promise<(LoanPositionType & { id: string }) | undefined>;
   deleteLoanPosition(id: string): Promise<void>;
+  repayLoan(userId: string, loanPositionId: string, amount: number, currency: string): Promise<(LoanPositionType & { id: string }) | undefined>; // Add repayLoan to interface
 
   // AI prediction methods
   getLatestPrediction(): Promise<(AIPredictionType & { id: string }) | undefined>;
@@ -250,6 +251,32 @@ export class MongoStorage implements IStorage {
     }
     await LoanPositionModel.findByIdAndDelete(id).exec();
     console.log(`[Storage] Deleted loan from DB: ${id}`);
+  }
+
+  async repayLoan(userId: string, loanPositionId: string, amount: number, currency: string): Promise<(LoanPositionType & { id: string }) | undefined> {
+    if (!this.demoUserId) {
+      throw new Error("Storage not initialized. Call init() first.");
+    }
+    console.log(`[Storage] Repaying loan ${loanPositionId} for user ${userId} with ${amount} ${currency}`);
+    // Mock implementation for now - in a real app, this would involve more complex logic
+    const loan = await this.getLoanPosition(loanPositionId);
+    if (!loan) return undefined;
+
+    let updatedLoan: LoanPositionType & { id: string };
+    if (currency === "BTC") {
+      updatedLoan = await this.updateLoanPosition(loanPositionId, { 
+        collateralBtc: (parseFloat(loan.collateralBtc) + amount).toString() 
+      }) as LoanPositionType & { id: string };
+    } else if (currency === "USDT") {
+      updatedLoan = await this.updateLoanPosition(loanPositionId, { 
+        collateralUsdt: (parseFloat(loan.collateralUsdt) + amount).toString() 
+      }) as LoanPositionType & { id: string };
+    } else {
+      throw new Error("Unsupported currency for repayment.");
+    }
+    
+    // In a real application, you would also update the user's balance and potentially recalculate health factors here.
+    return updatedLoan;
   }
 
   async createPrediction(prediction: Omit<AIPredictionType, "id" | "createdAt">): Promise<AIPredictionType & { id: string }> {
