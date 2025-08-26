@@ -78,9 +78,9 @@ export const priceHistory = pgTable("price_history", {
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 // export const insertLoanPositionSchema = createInsertSchema(loanPositions).omit({ id: true, createdAt: true, updatedAt: true }); // Removed Drizzle insert schema
-export const insertAiPredictionSchema = createInsertSchema(aiPredictions).omit({ id: true, timestamp: true });
+export const insertAiPredictionSchema = createInsertSchema(aiPredictions).omit({ id: true });
 export const insertTopUpTransactionSchema = createInsertSchema(topUpTransactions).omit({ id: true, createdAt: true });
-export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({ id: true, timestamp: true });
+export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({ id: true });
 
 // Types
 export type User = typeof users.$inferSelect;

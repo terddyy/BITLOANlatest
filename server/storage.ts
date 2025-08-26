@@ -35,6 +35,7 @@ interface RawLoanPositionDocument {
 }
 
 export interface IStorage {
+  init(): Promise<void>; // Add the init method to the interface
   // User methods
   getUser(id: string): Promise<(UserSchemaType & { id: string }) | undefined>;
   getUserByUsername(username: string): Promise<(UserSchemaType & { id: string }) | undefined>;
