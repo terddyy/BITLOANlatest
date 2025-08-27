@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { MongoStorage, IStorage } from "./storage"; // Import MongoStorage class and IStorage interface
-import { PriceMonitorService } from "./services/price-monitor"; // Import PriceMonitorService
+import { MongoStorage, IStorage } from "./storage.js"; // Added .js extension
+import { PriceMonitorService } from "./services/price-monitor.js"; // Added .js extension
 import { aiPredictionService } from "./services/ai-prediction";
 import Notification from './models/Notification'; // Import the Notification model
 import LoanPositionModel from './models/LoanPosition'; // Import the LoanPosition model
