@@ -42,8 +42,8 @@ export default function Navigation({ user }: NavigationProps) {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-8">
           <Link href="/" className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center" data-testid="logo">
-              <img src="/src/Images/bitloanlogowithbackground.png" alt="BitLoan Logo" className="w-full h-full object-cover" />
+            <div className="h-10 w-10 flex-shrink-0">
+              <img src="/assets/bitloanlogowithbackground.png" alt="BitLoan Logo" className="w-full h-full object-cover" />
             </div>
             <h1 className="text-2xl font-bold text-white" data-testid="app-title">BitLoan</h1>
           </Link>
