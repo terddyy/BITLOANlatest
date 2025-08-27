@@ -1,7 +1,7 @@
 import "dotenv/config"; // Load environment variables
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js"; // Added .js extension
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, serveStatic, log } from "./vite.js"; // Added .js extension
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
