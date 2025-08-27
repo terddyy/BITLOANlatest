@@ -27,6 +27,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    assetsDir: "assets", // Ensure assets are placed in an 'assets' directory
   },
   server: {
     fs: {
