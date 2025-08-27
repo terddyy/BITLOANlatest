@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes.js"; // Added .js extension
 import { setupVite, serveStatic, log } from "./vite.js"; // Added .js extension
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
+import path from "path"; // Import path for serveStatic
 
 declare global {
   namespace Express {
@@ -22,15 +23,21 @@ const MONGODB_URI = process.env.MONGODB_URI; // Use environment variable for Mon
 
 // Connect to MongoDB Atlas
 // Only attempt to connect if MONGODB_URI is defined
-if (MONGODB_URI) {
-  mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 20000, // Increase timeout to 20 seconds
-  })
-    .then(() => console.log("Connected to MongoDB Atlas"))
-    .catch((err) => console.error("MongoDB Atlas connection error:", err));
-} else {
-  console.warn("MONGODB_URI not provided. MongoDB connection skipped.");
+if (!MONGODB_URI) {
+  console.error("MONGODB_URI environment variable is not set. Exiting.");
+  process.exit(1); // Exit if MONGODB_URI is not set
 }
+
+// Connect to MongoDB Atlas
+// Only attempt to connect if MONGODB_URI is defined
+mongoose.connect(MONGODB_URI, {
+  serverSelectionTimeoutMS: 20000, // Increase timeout to 20 seconds
+})
+  .then(() => console.log("Connected to MongoDB Atlas"))
+  .catch((err) => {
+    console.error("MongoDB Atlas connection error:", err);
+    process.exit(1); // Exit if MongoDB connection fails
+  });
 
 // Add request ID and timestamp middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -86,7 +93,7 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    serveStatic(app, { root: path.resolve(import.meta.dirname, "../client") });
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
