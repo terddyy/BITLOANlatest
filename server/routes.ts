@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { MongoStorage, IStorage } from "./storage.js"; // Added .js extension
 import { PriceMonitorService } from "./services/price-monitor.js"; // Added .js extension
 import { aiPredictionService } from "./services/ai-prediction";
-import Notification from './models/Notification'; // Import the Notification model
+import Notification from './models/Notification.js'; // Added .js extension
 import LoanPositionModel from './models/LoanPosition'; // Import the LoanPosition model
 import { Request, Response, NextFunction } from 'express'; // Import Request, Response, NextFunction
 import { User as UserType } from "@shared/schema"; // Correctly import UserType from shared/schema
