@@ -2,11 +2,11 @@ import {
   type User as UserSchemaType, // Renamed to avoid conflict with Mongoose model
   type InsertUser,
   type LoanPosition as LoanPositionType,
-  type AiPrediction as AIPredictionType,
+  type AiPrediction,
   type InsertAiPrediction,
-  type TopUpTransaction as TopUpTransactionType,
+  type TopUpTransaction,
   type InsertTopUpTransaction,
-  type PriceHistory as PriceHistoryType,
+  type PriceHistory,
   type CreateLoanRequest
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -51,19 +51,19 @@ export interface IStorage {
   repayLoan(userId: string, loanPositionId: string, amount: number, currency: string): Promise<(LoanPositionType & { id: string }) | undefined>; // Add repayLoan to interface
 
   // AI prediction methods
-  getLatestPrediction(): Promise<(AIPredictionType & { id: string }) | undefined>;
-  createPrediction(prediction: InsertAiPrediction): Promise<AIPredictionType & { id: string }>;
-  getPredictionHistory(limit?: number): Promise<(AIPredictionType & { id: string })[]>;
+  getLatestPrediction(): Promise<(AiPrediction & { id: string }) | undefined>;
+  createPrediction(prediction: InsertAiPrediction): Promise<AiPrediction & { id: string }>;
+  getPredictionHistory(limit?: number): Promise<(AiPrediction & { id: string })[]>;
 
   // Top-up transaction methods
-  getTopUpTransactions(userId: string, limit?: number): Promise<(TopUpTransactionType & { id: string })[]>;
-  createTopUpTransaction(transaction: InsertTopUpTransaction): Promise<TopUpTransactionType & { id: string }>;
+  getTopUpTransactions(userId: string, limit?: number): Promise<(TopUpTransaction & { id: string })[]>;
+  createTopUpTransaction(transaction: InsertTopUpTransaction): Promise<TopUpTransaction & { id: string }>;
 
   // Price history methods
-  getLatestPrice(symbol: string): Promise<(PriceHistoryType & { id: string }) | undefined>;
-  createPriceHistory(price: Omit<PriceHistoryType, "id" | "createdAt">): Promise<PriceHistoryType & { id: string }>;
-  getPriceHistory(symbol: string, limit?: number): Promise<(PriceHistoryType & { id: string })[]>;
-  getPastPrice(symbol: string, timeAgoMs: number): Promise<(PriceHistoryType & { id: string }) | undefined>;
+  getLatestPrice(symbol: string): Promise<(PriceHistory & { id: string }) | undefined>;
+  createPriceHistory(price: InsertPriceHistory): Promise<PriceHistory & { id: string }>;
+  getPriceHistory(symbol: string, limit?: number): Promise<(PriceHistory & { id: string })[]>;
+  getPastPrice(symbol: string, timeAgoMs: number): Promise<(PriceHistory & { id: string }) | undefined>;
 }
 
 export class MongoStorage implements IStorage {
@@ -264,22 +264,22 @@ export class MongoStorage implements IStorage {
 
     let updatedLoan: LoanPositionType & { id: string };
     if (currency === "BTC") {
-      updatedLoan = await this.updateLoanPosition(loanPositionId, { 
-        collateralBtc: (parseFloat(loan.collateralBtc) + amount).toString() 
+      updatedLoan = await this.updateLoanPosition(loanPositionId, {
+        collateralBtc: (parseFloat(loan.collateralBtc) + amount).toString()
       }) as LoanPositionType & { id: string };
     } else if (currency === "USDT") {
-      updatedLoan = await this.updateLoanPosition(loanPositionId, { 
-        collateralUsdt: (parseFloat(loan.collateralUsdt) + amount).toString() 
+      updatedLoan = await this.updateLoanPosition(loanPositionId, {
+        collateralUsdt: (parseFloat(loan.collateralUsdt) + amount).toString()
       }) as LoanPositionType & { id: string };
     } else {
       throw new Error("Unsupported currency for repayment.");
     }
-    
+
     // In a real application, you would also update the user's balance and potentially recalculate health factors here.
     return updatedLoan;
   }
 
-  async createPrediction(prediction: Omit<AIPredictionType, "id" | "createdAt">): Promise<AIPredictionType & { id: string }> {
+  async createPrediction(prediction: InsertAiPrediction): Promise<AiPrediction & { id: string }> {
     if (!this.demoUserId) {
       throw new Error("Storage not initialized. Call init() first.");
     }
@@ -288,80 +288,181 @@ export class MongoStorage implements IStorage {
       createdAt: new Date(),
     });
     const savedPrediction = await newPrediction.save();
-    return { ...savedPrediction.toJSON(), id: savedPrediction._id.toString() };
+    return {
+      id: savedPrediction._id.toString(),
+      timestamp: savedPrediction.timestamp,
+      currentPrice: savedPrediction.currentPrice,
+      predictedPrice: savedPrediction.predictedPrice,
+      timeHorizon: savedPrediction.timeHorizon,
+      confidence: savedPrediction.confidence,
+      riskLevel: savedPrediction.riskLevel,
+      modelAccuracy: savedPrediction.modelAccuracy,
+      priceData: savedPrediction.priceData,
+      // The 'trend' and 'volatility' properties are not directly from the savedPrediction,
+      // but are part of the AiPrediction type. Ensure these are handled if they are part of the schema
+      // and need to be returned.
+      trend: (savedPrediction as any).trend, // Cast to any to access trend if not directly in savedPrediction
+      volatility: (savedPrediction as any).volatility, // Cast to any to access volatility if not directly in savedPrediction
+      createdAt: savedPrediction.createdAt,
+      updatedAt: savedPrediction.updatedAt,
+    };
   }
 
-  async getLatestPrediction(): Promise<(AIPredictionType & { id: string }) | undefined> {
+  async getLatestPrediction(): Promise<(AiPrediction & { id: string }) | undefined> {
     if (!this.demoUserId) {
       throw new Error("Storage not initialized. Call init() first.");
     }
     const latestPrediction = await AIPredictionModel.findOne().sort({ createdAt: -1 }).lean().exec();
-    return latestPrediction ? { ...latestPrediction, id: (latestPrediction._id as mongoose.Types.ObjectId).toString() } : undefined;
+    return latestPrediction ? {
+      id: (latestPrediction._id as mongoose.Types.ObjectId).toString(),
+      timestamp: latestPrediction.timestamp,
+      currentPrice: latestPrediction.currentPrice,
+      predictedPrice: latestPrediction.predictedPrice,
+      timeHorizon: latestPrediction.timeHorizon,
+      confidence: latestPrediction.confidence,
+      riskLevel: latestPrediction.riskLevel,
+      modelAccuracy: latestPrediction.modelAccuracy,
+      priceData: latestPrediction.priceData,
+      trend: (latestPrediction as any).trend,
+      volatility: (latestPrediction as any).volatility,
+      createdAt: latestPrediction.createdAt,
+      updatedAt: latestPrediction.updatedAt,
+    } : undefined;
   }
 
-  async getPredictionHistory(limit: number = 50): Promise<(AIPredictionType & { id: string })[]> {
+  async getPredictionHistory(limit: number = 50): Promise<(AiPrediction & { id: string })[]> {
     if (!this.demoUserId) {
       throw new Error("Storage not initialized. Call init() first.");
     }
     const predictions = await AIPredictionModel.find().sort({ createdAt: -1 }).limit(limit).lean().exec();
-    return predictions.map(prediction => ({ ...prediction, id: (prediction._id as mongoose.Types.ObjectId).toString() }));
+    return predictions.map(prediction => ({
+      id: (prediction._id as mongoose.Types.ObjectId).toString(),
+      timestamp: prediction.timestamp,
+      currentPrice: prediction.currentPrice,
+      predictedPrice: prediction.predictedPrice,
+      timeHorizon: prediction.timeHorizon,
+      confidence: prediction.confidence,
+      riskLevel: prediction.riskLevel,
+      modelAccuracy: prediction.modelAccuracy,
+      priceData: prediction.priceData,
+      trend: (prediction as any).trend,
+      volatility: (prediction as any).volatility,
+      createdAt: prediction.createdAt,
+      updatedAt: prediction.updatedAt,
+    }));
   }
 
-  async createTopUpTransaction(transaction: Omit<TopUpTransactionType, "id" | "createdAt">): Promise<TopUpTransactionType & { id: string }> {
+  async createTopUpTransaction(transaction: InsertTopUpTransaction): Promise<TopUpTransaction & { id: string }> {
     if (!this.demoUserId) {
       throw new Error("Storage not initialized. Call init() first.");
     }
     const newTransaction = new TopUpTransactionModel({
       ...transaction,
       createdAt: new Date(),
+      updatedAt: new Date(), // Add updatedAt for consistency
     });
     const savedTransaction = await newTransaction.save();
-    return { ...savedTransaction.toJSON(), id: savedTransaction._id.toString() };
+    return {
+      id: savedTransaction._id.toString(),
+      userId: savedTransaction.userId,
+      loanPositionId: savedTransaction.loanPositionId,
+      amount: savedTransaction.amount,
+      currency: savedTransaction.currency,
+      isAutomatic: savedTransaction.isAutomatic,
+      txHash: savedTransaction.txHash,
+      status: savedTransaction.status,
+      createdAt: savedTransaction.createdAt,
+      updatedAt: savedTransaction.updatedAt,
+    };
   }
 
-  async getTopUpTransactions(userId: string, limit: number = 20): Promise<(TopUpTransactionType & { id: string })[]> {
+  async getTopUpTransactions(userId: string, limit: number = 20): Promise<(TopUpTransaction & { id: string })[]> {
     if (!this.demoUserId) {
       throw new Error("Storage not initialized. Call init() first.");
     }
     const transactions = await TopUpTransactionModel.find({ userId }).sort({ createdAt: -1 }).limit(limit).lean().exec();
-    return transactions.map(transaction => ({ ...transaction, id: (transaction._id as mongoose.Types.ObjectId).toString() }));
+    return transactions.map(transaction => ({
+      id: (transaction._id as mongoose.Types.ObjectId).toString(),
+      userId: transaction.userId,
+      loanPositionId: transaction.loanPositionId,
+      amount: transaction.amount,
+      currency: transaction.currency,
+      isAutomatic: transaction.isAutomatic,
+      txHash: transaction.txHash,
+      status: transaction.status,
+      createdAt: transaction.createdAt,
+      updatedAt: transaction.updatedAt,
+    }));
   }
 
-  async createPriceHistory(price: Omit<PriceHistoryType, "id" | "createdAt">): Promise<PriceHistoryType & { id: string }> {
+  async createPriceHistory(price: InsertPriceHistory): Promise<PriceHistory & { id: string }> {
     if (!this.demoUserId) {
       throw new Error("Storage not initialized. Call init() first.");
     }
     const newPrice = new PriceHistoryModel({
       ...price,
       createdAt: new Date(),
+      updatedAt: new Date(), // Add updatedAt for consistency
     });
     const savedPrice = await newPrice.save();
-    return { ...savedPrice.toJSON(), id: savedPrice._id.toString() };
+    return {
+      id: savedPrice._id.toString(),
+      symbol: savedPrice.symbol,
+      price: savedPrice.price,
+      source: savedPrice.source,
+      timestamp: savedPrice.timestamp,
+      createdAt: savedPrice.createdAt,
+      updatedAt: savedPrice.updatedAt,
+    };
   }
 
-  async getLatestPrice(symbol: string): Promise<(PriceHistoryType & { id: string }) | undefined> {
+  async getLatestPrice(symbol: string): Promise<(PriceHistory & { id: string }) | undefined> {
     if (!this.demoUserId) {
       throw new Error("Storage not initialized. Call init() first.");
     }
     const latestPrice = await PriceHistoryModel.findOne({ symbol }).sort({ createdAt: -1 }).lean().exec();
-    return latestPrice ? { ...latestPrice, id: (latestPrice._id as mongoose.Types.ObjectId).toString() } : undefined;
+    return latestPrice ? {
+      id: (latestPrice._id as mongoose.Types.ObjectId).toString(),
+      symbol: latestPrice.symbol,
+      price: latestPrice.price,
+      source: latestPrice.source,
+      timestamp: latestPrice.timestamp,
+      createdAt: latestPrice.createdAt,
+      updatedAt: latestPrice.updatedAt,
+    } : undefined;
   }
 
-  async getPriceHistory(symbol: string, limit: number = 100): Promise<(PriceHistoryType & { id: string })[]> {
+  async getPriceHistory(symbol: string, limit: number = 100): Promise<(PriceHistory & { id: string })[]> {
     if (!this.demoUserId) {
       throw new Error("Storage not initialized. Call init() first.");
     }
     const prices = await PriceHistoryModel.find({ symbol }).sort({ createdAt: -1 }).limit(limit).lean().exec();
-    return prices.map(price => ({ ...price, id: (price._id as mongoose.Types.ObjectId).toString() }));
+    return prices.map(price => ({
+      id: (price._id as mongoose.Types.ObjectId).toString(),
+      symbol: price.symbol,
+      price: price.price,
+      source: price.source,
+      timestamp: price.timestamp,
+      createdAt: price.createdAt,
+      updatedAt: price.updatedAt,
+    }));
   }
 
-  async getPastPrice(symbol: string, timeAgoMs: number): Promise<(PriceHistoryType & { id: string }) | undefined> {
+  async getPastPrice(symbol: string, timeAgoMs: number): Promise<(PriceHistory & { id: string }) | undefined> {
     if (!this.demoUserId) {
       throw new Error("Storage not initialized. Call init() first.");
     }
     const targetTime = new Date(Date.now() - timeAgoMs);
     const pastPrice = await PriceHistoryModel.findOne({ symbol, createdAt: { $lte: targetTime } }).sort({ createdAt: -1 }).lean().exec();
-    return pastPrice ? { ...pastPrice, id: (pastPrice._id as mongoose.Types.ObjectId).toString() } : undefined;
+    return pastPrice ? {
+      id: (pastPrice._id as mongoose.Types.ObjectId).toString(),
+      symbol: pastPrice.symbol,
+      price: pastPrice.price,
+      source: pastPrice.source,
+      timestamp: pastPrice.timestamp,
+      createdAt: pastPrice.createdAt,
+      updatedAt: pastPrice.updatedAt,
+    } : undefined;
   }
 }
 

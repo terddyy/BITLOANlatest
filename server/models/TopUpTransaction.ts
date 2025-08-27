@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { TopUpTransactionType } from "@shared/schema";
+import { TopUpTransaction } from "@shared/schema";
 
-interface ITopUpTransactionDocument extends TopUpTransactionType, Document {
+interface ITopUpTransactionDocument extends TopUpTransaction, Document {
   _id: mongoose.Types.ObjectId;
   id: string;
 }

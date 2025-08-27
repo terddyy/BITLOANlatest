@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { PriceHistoryType } from "@shared/schema";
+import { PriceHistory } from "@shared/schema";
 
-interface IPriceHistoryDocument extends PriceHistoryType, Document {
+interface IPriceHistoryDocument extends PriceHistory, Document {
   _id: mongoose.Types.ObjectId;
   id: string;
 }

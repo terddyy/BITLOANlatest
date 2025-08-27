@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { AIPredictionType } from "@shared/schema";
+import { AiPrediction } from "@shared/schema";
 
-interface IAIPredictionDocument extends AIPredictionType, Document {
+interface IAIPredictionDocument extends AiPrediction, Document {
   _id: mongoose.Types.ObjectId;
   id: string;
 }
