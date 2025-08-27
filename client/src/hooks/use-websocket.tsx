@@ -22,8 +22,13 @@ export function useWebSocket({ path, onMessage, token }: UseWebSocketOptions) {
       return;
     }
 
-    const baseWsUrl = import.meta.env.VITE_WS_URL;
-    // console.log("WebSocket: VITE_WS_URL from env:", baseWsUrl); // Remove console log
+    let baseWsUrl = import.meta.env.VITE_WS_URL;
+
+    if (!baseWsUrl) {
+      const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+      baseWsUrl = `${protocol}${window.location.host}`;
+      console.log("WebSocket: VITE_WS_URL not set, deriving from window.location:", baseWsUrl);
+    }
 
     if (!baseWsUrl) {
       console.error("WebSocket: VITE_WS_URL environment variable is not set.");

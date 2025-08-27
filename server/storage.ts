@@ -10,12 +10,12 @@ import {
   type CreateLoanRequest
 } from "@shared/schema";
 import { randomUUID } from "crypto";
-import LoanPositionModel from './models/LoanPosition'; // Import Mongoose model
-import Notification from "./models/Notification"; // Ensure Notification model is imported if needed for other methods
-import User, { IUserDocument } from './models/User'; // Import User model and interface
-import AIPredictionModel from './models/AIPrediction'; // Import AIPrediction model
-import PriceHistoryModel from './models/PriceHistory'; // Import PriceHistory model
-import TopUpTransactionModel from './models/TopUpTransaction'; // Import TopUpTransaction model
+import LoanPositionModel from './models/LoanPosition.js'; // Import Mongoose model
+import Notification from "./models/Notification.js"; // Ensure Notification model is imported if needed for other methods
+import User, { IUserDocument } from './models/User.js'; // Import User model and interface
+import AIPredictionModel from './models/AIPrediction.js'; // Import AIPrediction model
+import PriceHistoryModel from './models/PriceHistory.js'; // Import PriceHistory model
+import TopUpTransactionModel from './models/TopUpTransaction.js'; // Import TopUpTransaction model
 import mongoose from 'mongoose'; // Import mongoose to use mongoose.Types.ObjectId
 
 // Define an interface for the raw document returned by .lean() to explicitly include _id
