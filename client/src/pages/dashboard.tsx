@@ -103,17 +103,17 @@ export default function Dashboard() {
   );
 
   // WebSocket connection for real-time updates - TEMPORARILY COMMENTED OUT
-  // useWebSocket({
-  //   path: "/ws",
-  //   onMessage: async (data: WebSocketData | NewNotificationMessage) => {
-  //     if (data.type === "price_update") {
-  //       setRealtimeData(data); // Pass data directly, as it's already WebSocketData type
-  //     } else if (data.type === "new_notification") { // Handle new notification from WebSocket
-  //       console.log("Received new notification via WebSocket:", data.data);
-  //       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }); // Invalidate and refetch notifications
-  //     }
-  //   },
-  // });
+  useWebSocket({
+    path: "/ws",
+    onMessage: async (data: WebSocketData | NewNotificationMessage) => {
+      if (data.type === "price_update") {
+        setRealtimeData(data); // Pass data directly, as it's already WebSocketData type
+      } else if (data.type === "new_notification") { // Handle new notification from WebSocket
+        console.log("Received new notification via WebSocket:", data.data);
+        queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }); // Invalidate and refetch notifications
+      }
+    },
+  });
 
   // Effect to update currentPriceChartData and currentTimeframe for useAiPrediction
   // Removed direct update to currentPriceChartData here, relying on RealTimePriceChart's onPriceDataUpdate

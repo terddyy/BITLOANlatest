@@ -95,10 +95,13 @@ export class MongoStorage implements IStorage {
     console.log(`[Storage] Demo user ID set to: ${this.demoUserId}`);
   }
 
-  public getDemoUserId(): string {
+  public async getDemoUserId(): Promise<string> {
     if (!this.demoUserId) {
-      console.error("[Storage] Attempted to get demoUserId before initialization.");
-      throw new Error("Demo user not initialized. Call init() first.");
+      console.warn("[Storage] demoUserId not initialized, calling init()...");
+      await this.init(); // Ensure init is called if not already
+      if (!this.demoUserId) {
+        throw new Error("Failed to initialize demo user.");
+      }
     }
     return this.demoUserId;
   }

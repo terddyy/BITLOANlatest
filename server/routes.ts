@@ -3,9 +3,9 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { MongoStorage, IStorage } from "./storage.js"; // Added .js extension
 import { PriceMonitorService } from "./services/price-monitor.js"; // Added .js extension
-import { aiPredictionService } from "./services/ai-prediction";
+import { aiPredictionService } from "./services/ai-prediction.js";
 import Notification from './models/Notification.js'; // Added .js extension
-import LoanPositionModel from './models/LoanPosition'; // Import the LoanPosition model
+import LoanPositionModel from './models/LoanPosition.js'; // Import the LoanPosition model
 import { Request, Response, NextFunction } from 'express'; // Import Request, Response, NextFunction
 import { User as UserType } from "@shared/schema"; // Correctly import UserType from shared/schema
 
@@ -137,52 +137,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   priceMonitorService.start();
 
   // Get the actual demo user ID from storage after initialization
-  const userId = storage.getDemoUserId(); // Use the actual user ID from storage
+  const userId = await storage.getDemoUserId(); // Use the actual user ID from storage
 
-  // WebSocket server for real-time updates - TEMPORARILY COMMENTED OUT
-  // const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  // app.set('wss', wss); // Make wss accessible via app.get('wss')
+  // WebSocket server for real-time updates
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  app.set('wss', wss); // Make wss accessible via app.get('wss')
   
-  // // Add heartbeat to WebSocket server
-  // interface CustomWebSocket extends WebSocket {
-  //   isAlive: boolean;
-  // }
+  // Add heartbeat to WebSocket server
+  interface CustomWebSocket extends WebSocket {
+    isAlive: boolean;
+  }
 
-  // wss.on('connection', (ws: CustomWebSocket) => {
-  //   ws.isAlive = true;
-  //   ws.on('pong', () => { ws.isAlive = true; });
+  wss.on('connection', (ws: CustomWebSocket) => {
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
 
-  //   console.log('WebSocket client connected');
-  //   console.log('Attempting to send initial data to new WebSocket client.');
+    console.log('WebSocket client connected');
+    console.log('Attempting to send initial data to new WebSocket client.');
     
-  //   // Send initial data
-  //   sendDataUpdate(ws);
+    // Send initial data
+    sendDataUpdate(ws);
     
-  //   // Send updates every 5 seconds
-  //   const interval = setInterval(() => {
-  //     if (ws.readyState === WebSocket.OPEN) {
-  //       sendDataUpdate(ws);
-  //     }
-  //   }, 5000);
+    // Send updates every 5 seconds
+    const interval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        sendDataUpdate(ws);
+      }
+    }, 5000);
     
-  //   ws.on('close', () => {
-  //     console.log('WebSocket client disconnected');
-  //     clearInterval(interval);
-  //   });
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected');
+      clearInterval(interval);
+    });
 
-  //   ws.on('error', (error) => {
-  //     console.error('WebSocket server encountered error with client:', error);
-  //   });
-  // });
+    ws.on('error', (error) => {
+      console.error('WebSocket server encountered error with client:', error);
+    });
+  });
 
-  // setInterval(() => {
-  //   wss.clients.forEach((ws: WebSocket) => {
-  //     const customWs = ws as CustomWebSocket;
-  //     if (customWs.isAlive === false) return customWs.terminate();
-  //     customWs.isAlive = false;
-  //     customWs.ping();
-  //   });
-  // }, 30000); // Ping clients every 30 seconds
+  setInterval(() => {
+    wss.clients.forEach((ws: WebSocket) => {
+      const customWs = ws as CustomWebSocket;
+      if (customWs.isAlive === false) return customWs.terminate();
+      customWs.isAlive = false;
+      customWs.ping();
+    });
+  }, 30000); // Ping clients every 30 seconds
 
   async function sendDataUpdate(ws: WebSocket) {
     try {
